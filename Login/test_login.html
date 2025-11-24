@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Debug Test</title>
+    <script src="../api-client.js"></script>
+</head>
+<body style="padding: 50px; font-family: Arial;">
+    <h1>Login Debug Test</h1>
+    
+    <div style="margin: 20px 0;">
+        <input type="email" id="email" placeholder="Email" value="test@gmail.com" style="padding: 10px; width: 300px;"><br><br>
+        <input type="password" id="password" placeholder="Password" value="Test1234!" style="padding: 10px; width: 300px;"><br><br>
+        <button onclick="testLogin()" style="padding: 10px 20px;">Test Login</button>
+    </div>
+    
+    <div id="output" style="margin-top: 20px; padding: 15px; background: #f0f0f0; white-space: pre-wrap;"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(msg) {
+            output.textContent += msg + '\n';
+            console.log(msg);
+        }
+        
+        async function testLogin() {
+            output.textContent = '';
+            log('Starting login test...');
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                log('Calling API.login...');
+                const user = await API.login(email, password);
+                
+                log('Login successful!');
+                log('User data: ' + JSON.stringify(user, null, 2));
+                
+                let dashboard = '../Dashboard/User.HTML';
+                if (user.userType === 'officer') {
+                    dashboard = '../Dashboard/Officer.HTML';
+                } else if (user.userType === 'worker') {
+                    dashboard = '../Dashboard/Worker.HTML';
+                }
+                
+                log('Dashboard to redirect to: ' + dashboard);
+                log('Redirecting in 2 seconds...');
+                
+                setTimeout(() => {
+                    log('Executing redirect NOW...');
+                    window.location.replace(dashboard);
+                }, 2000);
+                
+            } catch (error) {
+                log('ERROR: ' + error.message);
+                log('Full error: ' + JSON.stringify(error));
+            }
+        }
+    </script>
+</body>
+</html>

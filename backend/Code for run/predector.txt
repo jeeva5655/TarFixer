@@ -1,0 +1,7 @@
+E:
+cd road-damage\backend
+python test_predict.py
+
+You’ll now find your result image in:
+
+E:\road-damage\backend\predictions\

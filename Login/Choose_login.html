@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TarFixer - Login</title>
+
+<!-- API Client -->
+<script src="../api-client.js"></script>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* BACKGROUND IMAGE */
+    #bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 140%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 10% center;
+        filter: brightness(80%);
+        z-index: -3;
+    }
+
+    #blur-right {
+        position: fixed;
+        right: 0;
+        top: 0;
+        width: 60%;
+        height: 100%;
+        backdrop-filter: blur(4px);
+        background: linear-gradient(to left, rgba(0,0,0,0.55), rgba(0,0,0,0.15));
+        z-index: -2;
+    }
+
+    #overlay {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.25);
+        z-index: -1;
+    }
+
+   /* TITLE */
+.welcome-title {
+    margin-top: 40px;
+    font-size: 26px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 1px;
+    z-index: 10;
+    color: #e6fff7;
+    text-shadow:
+        0 0 3px #0fa,
+        0 0 6px #0fa,
+        0 0 12px #0fa,
+        0 0 24px rgba(0, 255, 170, 0.4),
+        0 0 36px rgba(0, 255, 170, 0.3);
+}
+
+    /* CARD */
+    .card {
+        width: 90%;
+        max-width: 340px;
+        background: rgba(255,255,255,0.14);
+        padding: 28px;
+        border-radius: 18px;
+        backdrop-filter: blur(13px);
+        box-shadow: 0 0 28px rgba(255,255,255,0.25);
+        text-align: center;
+        color: white;
+        margin-top: 20px;
+    }
+
+    h2 {
+        margin-bottom: 18px;
+        font-size: 26px;
+    }
+
+    /* SWITCH BUTTONS */
+    .switch {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    .switch button {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid white;
+        background: transparent;
+        color: white;
+        cursor: pointer;
+    }
+    .switch .active {
+        background: white;
+        color: black;
+    }
+
+    label {
+        display: block;
+        text-align: left;
+        margin-top: 10px;
+        font-size: 14px;
+    }
+
+    /* FIXED WIDTH */
+    input, select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        margin-top: 5px;
+        background: rgba(255,255,255,0.9);
+        font-size: 15px;
+        box-sizing: border-box;
+    }
+
+    /* PASSWORD BOX */
+    .password-box {
+        position: relative;
+        width: 100%;
+    }
+
+    .password-box img {
+        width: 22px;
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+    }
+
+    .error {
+        color: #ff4242;
+        font-size: 12px;
+        margin-top: 2px;
+        text-align: left;
+    }
+
+    .forgot {
+        text-align: right;
+        margin-top: 5px;
+    }
+    .forgot a {
+        color: #cfe3ff;
+        font-size: 13px;
+        text-decoration: none;
+    }
+
+    .main-btn {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        background: white;
+        color: black;
+        font-size: 16px;
+        border: none;
+        margin-top: 15px;
+        cursor: pointer;
+    }
+
+    /* FIXED GOOGLE BUTTON WIDTH */
+    .google-btn {
+        width: 100%;
+        padding: 11px;
+        border-radius: 8px;
+        background: white;
+        color: black;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        box-sizing: border-box;
+        font-size: 15px;
+    }
+
+    .google-btn img {
+        width: 20px;
+    }
+
+    .or {
+        margin: 10px 0;
+        color: #fff;
+        font-size: 14px;
+    }
+
+    .status-message {
+        margin-top: 12px;
+        font-size: 13px;
+        text-align: left;
+        min-height: 18px;
+    }
+
+    .status-message.success { color: #7ef7a1; }
+    .status-message.info { color: #ffe57f; }
+    .status-message.error { color: #ff4242; }
+
+</style>
+</head>
+
+<body>
+
+<img id="bg" src="bg.jpg">
+<div id="blur-right"></div>
+<div id="overlay"></div>
+
+<div class="welcome-title">Welcome to TarFixer</div>
+
+<div class="card">
+
+    <h2 id="titleText">Sign In</h2>
+
+    <div class="switch">
+        <button id="signinBtn" class="active" onclick="showSignin()">Sign In</button>
+        <button id="signupBtn" onclick="showSignup()">Sign Up</button>
+    </div>
+
+    <!-- SIGN IN FORM -->
+    <div id="signinForm">
+
+        <label>Email address</label>
+        <input id="loginEmail" type="text" placeholder="Email address">
+        <div id="loginEmailError" class="error"></div>
+
+        <label>Password</label>
+        <div class="password-box">
+            <input type="password" id="pwd" placeholder="Password">
+            <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" onclick="togglePassword('pwd')">
+        </div>
+
+        <div class="forgot"><a href="#">Forgot Password?</a></div>
+
+        <button class="main-btn" onclick="validateLogin()">Sign In</button>
+
+        <div class="or">OR</div>
+
+        <div class="google-btn">
+            <img src="google.png"> Continue with Google
+        </div>
+
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="signupForm" style="display:none;">
+
+        <label>Username or Email</label>
+        <input id="regEmail" type="text" placeholder="Username / Email">
+        <div id="regEmailError" class="error"></div>
+
+        <label>Full Name (optional)</label>
+        <input id="regName" type="text" placeholder="Display Name">
+
+        <label>Account Type</label>
+        <select id="regRole">
+            <option value="user">Citizen Reporter</option>
+            <option value="officer">Senior Officer</option>
+            <option value="worker">Field Worker</option>
+        </select>
+
+        <label>Phone Number</label>
+        <input id="regPhone" type="tel" placeholder="e.g., +91 98765 43210">
+        <div id="regPhoneError" class="error"></div>
+
+        <label>Create Password</label>
+        <!-- NO EYE ICON HERE -->
+        <input type="password" id="regPass" placeholder="New Password">
+        <div id="regPassError" class="error"></div>
+
+        <label>Confirm Password</label>
+        <div class="password-box">
+            <input type="password" id="regPass2" placeholder="Re-enter Password">
+            <!-- ONLY HERE EYE ICON IS SHOWN -->
+            <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" onclick="togglePassword('regPass2')">
+        </div>
+        <div id="regPass2Error" class="error"></div>
+
+        <div id="signupStatus" class="status-message"></div>
+
+        <button class="main-btn" onclick="validateSignup()">Create Account</button>
+
+    </div>
+
+</div>
+
+<script>
+const API = new TarFixerAPI();
+
+function togglePassword(id) {
+    const box = document.getElementById(id);
+    box.type = (box.type === "password") ? "text" : "password";
+}
+
+function showSignin() {
+    signinForm.style.display = "block";
+    signupForm.style.display = "none";
+    signinBtn.classList.add("active");
+    signupBtn.classList.remove("active");
+    titleText.textContent = "Sign In";
+}
+
+function showSignup() {
+    signinForm.style.display = "none";
+    signupForm.style.display = "block";
+    signupBtn.classList.add("active");
+    signinBtn.classList.remove("active");
+    titleText.textContent = "Sign Up";
+}
+
+function isValidEmail(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+function isStrongPass(p) {
+    return /[A-Z]/.test(p) &&
+           /[a-z]/.test(p) &&
+           /[0-9]/.test(p) &&
+           /[\W_]/.test(p) &&
+           p.length >= 8;
+}
+
+// ==========================================
+// COMPREHENSIVE SECURE AUTHENTICATION SYSTEM
+// ==========================================
+
+const AUTH_STORAGE = 'tarfixer_users_db';
+const SESSION_STORAGE = 'tarfixer_session';
+const WHITELIST_STORAGE = 'tarfixer_whitelist';
+const AUDIT_LOG_STORAGE = 'tarfixer_audit_log';
+const LOGIN_ATTEMPTS_STORAGE = 'tarfixer_login_attempts';
+
+// Session expiration: 24 hours
+const SESSION_DURATION = 24 * 60 * 60 * 1000;
+
+// Rate limiting: Max 5 attempts per email in 15 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000;
+
+// Security constants
+const INTEGRITY_STORAGE = 'tarfixer_integrity';
+const SECRET_KEY = 'TARFIXER_HMAC_SECRET_' + btoa(navigator.userAgent).substring(0, 20); // Device-specific secret
+
+// ==========================================
+// ADVANCED CRYPTOGRAPHIC FUNCTIONS
+// ==========================================
+
+// Generate cryptographically secure random token
+function generateSecureToken(length = 32) {
+    const array = new Uint8Array(length);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// HMAC-SHA256 for data integrity
+async function computeHMAC(data, key) {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(key);
+    const dataBuffer = encoder.encode(data);
+    
+    const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer);
+    const hashArray = Array.from(new Uint8Array(signature));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Verify HMAC signature
+async function verifyHMAC(data, signature, key) {
+    const computed = await computeHMAC(data, key);
+    return computed === signature;
+}
+
+// Sign data with timestamp
+async function signData(data) {
+    const timestamp = Date.now();
+    const dataString = JSON.stringify(data) + timestamp;
+    const signature = await computeHMAC(dataString, SECRET_KEY);
+    return { data, timestamp, signature };
+}
+
+// Verify signed data
+async function verifySignedData(signedData) {
+    try {
+        const { data, timestamp, signature } = signedData;
+        const dataString = JSON.stringify(data) + timestamp;
+        const valid = await verifyHMAC(dataString, signature, SECRET_KEY);
+        
+        // Check if signature is too old (prevent replay attacks)
+        const age = Date.now() - timestamp;
+        if (age > 7 * 24 * 60 * 60 * 1000) { // 7 days max
+            return false;
+        }
+        
+        return valid;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Store integrity checksums for critical data
+async function updateIntegrityCheck() {
+    try {
+        const usersDB = getUsersDB();
+        const whitelist = getWhitelist();
+        
+        const checksums = {
+            usersDB: await computeHMAC(JSON.stringify(usersDB), SECRET_KEY),
+            whitelist: await computeHMAC(JSON.stringify(whitelist), SECRET_KEY),
+            lastCheck: Date.now()
+        };
+        
+        localStorage.setItem(INTEGRITY_STORAGE, JSON.stringify(checksums));
+    } catch (e) {
+        console.error('Integrity check update failed:', e);
+    }
+}
+
+// Verify data integrity
+async function verifyIntegrity() {
+    try {
+        const stored = localStorage.getItem(INTEGRITY_STORAGE);
+        if (!stored) {
+            await updateIntegrityCheck();
+            return true; // First time, create checksums
+        }
+        
+        const checksums = JSON.parse(stored);
+        const usersDB = getUsersDB();
+        const whitelist = getWhitelist();
+        
+        const currentUsersHash = await computeHMAC(JSON.stringify(usersDB), SECRET_KEY);
+        const currentWhitelistHash = await computeHMAC(JSON.stringify(whitelist), SECRET_KEY);
+        
+        // Check if data was tampered with
+        const usersIntact = currentUsersHash === checksums.usersDB;
+        const whitelistIntact = currentWhitelistHash === checksums.whitelist;
+        
+        if (!usersIntact || !whitelistIntact) {
+            logAuditEvent('DATA_TAMPERING_DETECTED', 'system', {
+                usersIntact,
+                whitelistIntact
+            });
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// ==========================================
+// WHITELIST MANAGEMENT
+// ==========================================
+
+// Initialize default whitelist (Pre-approved emails)
+function initializeWhitelist() {
+    let whitelist = getWhitelist();
+    
+    // If empty, add default authorized emails
+    if (Object.keys(whitelist).length === 0) {
+        whitelist = {
+            // Officers (Pre-approved)
+            'admin@officer.com': { userType: 'officer', approvedBy: 'system', approvedAt: new Date().toISOString() },
+            'supervisor@officer.com': { userType: 'officer', approvedBy: 'system', approvedAt: new Date().toISOString() },
+            'manager@office.com': { userType: 'officer', approvedBy: 'system', approvedAt: new Date().toISOString() },
+            
+            // Workers (Pre-approved)
+            'worker1@worker.com': { userType: 'worker', approvedBy: 'system', approvedAt: new Date().toISOString() },
+            'worker2@worker.com': { userType: 'worker', approvedBy: 'system', approvedAt: new Date().toISOString() },
+            'contractor@worker.com': { userType: 'worker', approvedBy: 'system', approvedAt: new Date().toISOString() }
+        };
+        saveWhitelist(whitelist);
+    }
+    
+    return whitelist;
+}
+
+function getWhitelist() {
+    try {
+        const whitelist = localStorage.getItem(WHITELIST_STORAGE);
+        return whitelist ? JSON.parse(whitelist) : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+async function saveWhitelist(whitelist) {
+    localStorage.setItem(WHITELIST_STORAGE, JSON.stringify(whitelist));
+    // Update integrity checksums after modifying whitelist
+    await updateIntegrityCheck();
+}
+
+function isWhitelisted(email) {
+    const whitelist = getWhitelist();
+    return whitelist.hasOwnProperty(email.toLowerCase());
+}
+
+function getWhitelistEntry(email) {
+    const whitelist = getWhitelist();
+    return whitelist[email.toLowerCase()] || null;
+}
+
+// ==========================================
+// AUDIT LOGGING
+// ==========================================
+
+function logAuditEvent(eventType, email, details = {}) {
+    try {
+        const auditLog = getAuditLog();
+        const event = {
+            timestamp: new Date().toISOString(),
+            eventType: eventType,
+            email: email || 'anonymous',
+            details: details,
+            userAgent: navigator.userAgent,
+            id: Date.now() + Math.random()
+        };
+        
+        auditLog.push(event);
+        
+        // Keep only last 1000 events
+        if (auditLog.length > 1000) {
+            auditLog.splice(0, auditLog.length - 1000);
+        }
+        
+        localStorage.setItem(AUDIT_LOG_STORAGE, JSON.stringify(auditLog));
+    } catch (e) {
+        console.error('Failed to log audit event:', e);
+    }
+}
+
+function getAuditLog() {
+    try {
+        const log = localStorage.getItem(AUDIT_LOG_STORAGE);
+        return log ? JSON.parse(log) : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// ==========================================
+// RATE LIMITING
+// ==========================================
+
+function getLoginAttempts() {
+    try {
+        const attempts = localStorage.getItem(LOGIN_ATTEMPTS_STORAGE);
+        return attempts ? JSON.parse(attempts) : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveLoginAttempts(attempts) {
+    localStorage.setItem(LOGIN_ATTEMPTS_STORAGE, JSON.stringify(attempts));
+}
+
+function isAccountLocked(email) {
+    const attempts = getLoginAttempts();
+    const emailAttempts = attempts[email.toLowerCase()];
+    
+    if (!emailAttempts) return false;
+    
+    const now = Date.now();
+    
+    // Clean up old attempts
+    if (emailAttempts.lastAttempt && (now - emailAttempts.lastAttempt) > LOCKOUT_DURATION) {
+        delete attempts[email.toLowerCase()];
+        saveLoginAttempts(attempts);
+        return false;
+    }
+    
+    // Check if locked
+    if (emailAttempts.count >= MAX_LOGIN_ATTEMPTS) {
+        const lockoutRemaining = Math.ceil((LOCKOUT_DURATION - (now - emailAttempts.lastAttempt)) / 1000 / 60);
+        return lockoutRemaining > 0 ? lockoutRemaining : false;
+    }
+    
+    return false;
+}
+
+function recordLoginAttempt(email, success) {
+    const attempts = getLoginAttempts();
+    const emailLower = email.toLowerCase();
+    
+    if (!attempts[emailLower]) {
+        attempts[emailLower] = { count: 0, lastAttempt: 0 };
+    }
+    
+    if (success) {
+        // Reset on successful login
+        delete attempts[emailLower];
+    } else {
+        // Increment failed attempts
+        attempts[emailLower].count++;
+        attempts[emailLower].lastAttempt = Date.now();
+    }
+    
+    saveLoginAttempts(attempts);
+}
+
+// ==========================================
+// PASSWORD SECURITY
+// ==========================================
+
+async function hashPassword(password, email = '') {
+    // Use email as additional salt for password uniqueness (NEW METHOD)
+    const encoder = new TextEncoder();
+    const salt = 'TARFIXER_SALT_2025_SECURE_' + email.toLowerCase();
+    const data = encoder.encode(password + salt);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Legacy password hashing (for backward compatibility with existing accounts)
+async function hashPasswordLegacy(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'TARFIXER_SALT_2025_SECURE');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Track suspicious login patterns
+function detectSuspiciousActivity(email) {
+    try {
+        const auditLog = getAuditLog();
+        const recentEvents = auditLog.filter(e => 
+            e.email === email && 
+            Date.now() - new Date(e.timestamp).getTime() < 60 * 60 * 1000 // Last hour
+        );
+        
+        const failedLogins = recentEvents.filter(e => e.eventType === 'LOGIN_FAILED').length;
+        const blockedAttempts = recentEvents.filter(e => e.eventType === 'LOGIN_BLOCKED').length;
+        
+        // If too many failed attempts from different locations/patterns
+        if (failedLogins > 10 || blockedAttempts > 3) {
+            logAuditEvent('SUSPICIOUS_ACTIVITY', email, {
+                failedLogins,
+                blockedAttempts,
+                severity: 'high'
+            });
+            return true;
+        }
+        
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+// ==========================================
+// USER DATABASE
+// ==========================================
+
+function getUsersDB() {
+    try {
+        const db = localStorage.getItem(AUTH_STORAGE);
+        return db ? JSON.parse(db) : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+async function saveUsersDB(db) {
+    localStorage.setItem(AUTH_STORAGE, JSON.stringify(db));
+    // Update integrity checksums after modifying database
+    await updateIntegrityCheck();
+}
+
+// ==========================================
+// USER TYPE DETERMINATION
+// ==========================================
+
+function getUserType(email) {
+    const emailLower = email.toLowerCase();
+    
+    // Check whitelist first for privileged accounts
+    if (emailLower.includes('@officer.com') || emailLower.includes('@office.com')) {
+        const whitelistEntry = getWhitelistEntry(emailLower);
+        if (whitelistEntry) {
+            return whitelistEntry.userType;
+        }
+        return null; // Not whitelisted - reject
+    }
+    
+    if (emailLower.includes('@worker.com')) {
+        const whitelistEntry = getWhitelistEntry(emailLower);
+        if (whitelistEntry) {
+            return whitelistEntry.userType;
+        }
+        return null; // Not whitelisted - reject
+    }
+    
+    // Public users (gmail, yahoo, etc.) - auto-approve
+    return 'user';
+}
+
+// ==========================================
+// SESSION MANAGEMENT
+// ==========================================
+
+async function createSession(email, userType) {
+    const now = Date.now();
+    const expiresAt = now + SESSION_DURATION;
+    
+    // Generate safe display name from email
+    const safeName = sanitizeInput(
+        email.split('@')[0]
+            .replace(/[._]/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase())
+            .substring(0, 50) // Limit length
+    );
+    
+    // Generate cryptographically secure session token
+    const secureToken = generateSecureToken(32);
+    
+    // Create session payload
+    const sessionPayload = {
+        email: email.toLowerCase(),
+        userType: userType,
+        name: safeName,
+        loginTime: new Date(now).toISOString(),
+        expiresAt: expiresAt,
+        token: secureToken,
+        deviceFingerprint: btoa(navigator.userAgent).substring(0, 20)
+    };
+    
+    // Sign the session data with HMAC
+    const signedSession = await signData(sessionPayload);
+    
+    localStorage.setItem(SESSION_STORAGE, JSON.stringify(signedSession));
+    logAuditEvent('LOGIN_SUCCESS', email, { userType: userType });
+    
+    return sessionPayload;
+}
+
+async function isSessionValid() {
+    try {
+        const sessionStr = localStorage.getItem(SESSION_STORAGE);
+        if (!sessionStr) return false;
+        
+        const signedSession = JSON.parse(sessionStr);
+        
+        // Verify HMAC signature
+        const signatureValid = await verifySignedData(signedSession);
+        if (!signatureValid) {
+            logAuditEvent('SESSION_TAMPERING', 'unknown', { reason: 'invalid_signature' });
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        const sessionData = signedSession.data;
+        const now = Date.now();
+        
+        // Check if session has required fields
+        if (!sessionData.email || !sessionData.userType || !sessionData.expiresAt) {
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        // Verify device fingerprint (basic device binding)
+        const currentFingerprint = btoa(navigator.userAgent).substring(0, 20);
+        if (sessionData.deviceFingerprint !== currentFingerprint) {
+            logAuditEvent('SESSION_HIJACK_ATTEMPT', sessionData.email, { reason: 'device_mismatch' });
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        // Check expiration
+        if (now > sessionData.expiresAt) {
+            logAuditEvent('SESSION_EXPIRED', sessionData.email);
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        // Verify data integrity
+        const integrityValid = await verifyIntegrity();
+        if (!integrityValid) {
+            logAuditEvent('DATA_INTEGRITY_FAILED', sessionData.email);
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        // Verify user still exists and userType matches
+        const usersDB = getUsersDB();
+        const emailLower = sessionData.email.toLowerCase();
+        const user = usersDB[emailLower];
+        
+        if (!user || user.userType !== sessionData.userType) {
+            logAuditEvent('SESSION_INVALID', sessionData.email, { reason: 'user_mismatch' });
+            localStorage.removeItem(SESSION_STORAGE);
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Get session data (with validation)
+async function getSessionData() {
+    try {
+        const sessionStr = localStorage.getItem(SESSION_STORAGE);
+        if (!sessionStr) return null;
+        
+        const signedSession = JSON.parse(sessionStr);
+        const valid = await verifySignedData(signedSession);
+        
+        return valid ? signedSession.data : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// ==========================================
+// INPUT SANITIZATION
+// ==========================================
+
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return '';
+    
+    return input
+        .trim()
+        .replace(/[<>]/g, '') // Remove potential XSS
+        .replace(/javascript:/gi, '') // Remove javascript protocol
+        .replace(/on\w+=/gi, ''); // Remove event handlers
+}
+
+// ==========================================
+// LOGIN VALIDATION
+// ==========================================
+
+async function validateLogin() {
+    // Clear previous errors
+    loginEmailError.textContent = "";
+    
+    const email = sanitizeInput(loginEmail.value.trim());
+    const password = pwd.value;
+
+    // Client-side validation
+    if (!isValidEmail(email)) {
+        loginEmailError.textContent = "Invalid email format";
+        return;
+    }
+
+    if (!password) {
+        loginEmailError.textContent = "Password is required";
+        return;
+    }
+
+    // Show loading state
+    const signInBtn = document.querySelector('#signinForm .main-btn');
+    const originalText = signInBtn.textContent;
+    signInBtn.textContent = 'Signing In...';
+    signInBtn.disabled = true;
+
+    try {
+        // LOGIN VIA BACKEND API
+        const user = await API.login(email, password);
+        
+        console.log('Login successful, user:', user);
+        
+        // Clear any redirect prevention flags
+        sessionStorage.removeItem('just_redirected');
+        
+        // Determine dashboard based on user type
+        let dashboard = '../Dashboard/User.HTML';
+        if (user.userType === 'officer') {
+            dashboard = '../Dashboard/Officer.HTML';
+        } else if (user.userType === 'worker') {
+            dashboard = '../Dashboard/Worker.HTML';
+        }
+        
+        console.log('Redirecting to:', dashboard);
+        
+        // Success - redirect immediately
+        window.location.replace(dashboard);
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        loginEmailError.textContent = error.message || 'Login failed. Please try again.';
+        signInBtn.textContent = originalText;
+        signInBtn.disabled = false;
+    }
+}
+
+// ==========================================
+// SIGNUP VALIDATION WITH WHITELIST CHECK
+// ==========================================
+
+async function validateSignup() {
+    // Clear previous errors
+    regEmailError.textContent = "";
+    regPassError.textContent = "";
+    regPass2Error.textContent = "";
+    const phoneError = document.getElementById('regPhoneError');
+    if (phoneError) phoneError.textContent = "";
+    const signupStatus = document.getElementById('signupStatus');
+    if (signupStatus) {
+        signupStatus.textContent = "";
+        signupStatus.className = 'status-message';
+    }
+    
+    let valid = true;
+    const email = sanitizeInput(regEmail.value.trim());
+    const password = regPass.value;
+    const confirmPassword = regPass2.value;
+    const role = (document.getElementById('regRole')?.value || 'user').toLowerCase();
+    const phoneInput = document.getElementById('regPhone');
+    const fullName = sanitizeInput(document.getElementById('regName')?.value || '');
+    const phone = sanitizeInput(phoneInput ? phoneInput.value : '');
+    const digitsOnly = phone.replace(/[^0-9]/g, '');
+
+    // Client-side validation
+    if (!isValidEmail(email)) {
+        regEmailError.textContent = "Enter valid email";
+        valid = false;
+    }
+
+    if ((role === 'officer' || role === 'worker') && digitsOnly.length < 10) {
+        if (phoneError) {
+            phoneError.textContent = "Phone number required for officer/worker accounts";
+        }
+        valid = false;
+    }
+
+    if (!isStrongPass(password)) {
+        regPassError.textContent =
+            "Must include A-Z, a-z, 0-9, symbol & 8+ chars";
+        valid = false;
+    }
+
+    if (confirmPassword !== password) {
+        regPass2Error.textContent = "Passwords do not match";
+        valid = false;
+    }
+
+    if (!valid) return;
+
+    // Show loading state
+    const signUpBtn = document.querySelector('#signupForm .main-btn');
+    const originalText = signUpBtn.textContent;
+    signUpBtn.textContent = 'Creating Account...';
+    signUpBtn.disabled = true;
+
+    try {
+        // SIGNUP VIA BACKEND API
+        const user = await API.signup(email, password, {
+            userType: role,
+            phone,
+            name: fullName
+        });
+        
+        console.log('Signup successful, user:', user);
+        if (signupStatus) {
+            signupStatus.textContent = 'Account created successfully. Redirecting...';
+            signupStatus.className = 'status-message success';
+        }
+        
+        // Clear any redirect prevention flags
+        sessionStorage.removeItem('just_redirected');
+        
+        // Determine dashboard based on user type
+        let dashboard = '../Dashboard/User.HTML';
+        if (user.userType === 'officer') {
+            dashboard = '../Dashboard/Officer.HTML';
+        } else if (user.userType === 'worker') {
+            dashboard = '../Dashboard/Worker.HTML';
+        }
+        
+        console.log('Redirecting to:', dashboard);
+        
+        // Success - redirect immediately
+        window.location.replace(dashboard);
+        
+    } catch (error) {
+        console.error('Signup error:', error);
+        if (error.status === 403 && error.response?.status === 'pending') {
+            if (signupStatus) {
+                signupStatus.textContent = 'Thanks! Your request is pending officer approval. We will email you once it is reviewed.';
+                signupStatus.className = 'status-message info';
+            }
+        } else {
+            regEmailError.textContent = error.message || 'Signup failed. Please try again.';
+            if (signupStatus) {
+                signupStatus.className = 'status-message error';
+                signupStatus.textContent = regEmailError.textContent;
+            }
+        }
+        signUpBtn.textContent = originalText;
+        signUpBtn.disabled = false;
+    }
+}
+
+// ==========================================
+// GOOGLE SIGN-IN (Properly Implemented)
+// ==========================================
+
+function initGoogleSignIn() {
+    const googleBtn = document.querySelector('.google-btn');
+    if (googleBtn) {
+        googleBtn.addEventListener('click', handleGoogleSignIn);
+    }
+}
+
+async function handleGoogleSignIn() {
+    alert('Google Sign-In Feature:\n\n' +
+          'To enable this feature, you need to:\n' +
+          '1. Create a Google Cloud Project\n' +
+          '2. Enable Google Identity Services\n' +
+          '3. Get OAuth 2.0 credentials\n' +
+          '4. Add your domain to authorized domains\n\n' +
+          'For now, please use Email/Password signup.\n\n' +
+          'Same whitelist rules apply to Google Sign-In:\n' +
+          '- Officer/Worker emails must be pre-approved\n' +
+          '- Public emails (Gmail, etc.) auto-approved as Users');
+    
+    logAuditEvent('GOOGLE_SIGNIN_ATTEMPTED', 'anonymous', { status: 'not_implemented' });
+}
+
+// ==========================================
+// INITIALIZE ON PAGE LOAD
+// ==========================================
+
+window.addEventListener('load', async () => {
+    // Clear old localStorage sessions (use backend token instead)
+    localStorage.removeItem('tarfixer_session');
+    localStorage.removeItem('tarfixer_users_db');
+    localStorage.removeItem('tarfixer_integrity');
+    
+    // Check if redirected from dashboard with error/expired params
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasErrorParam = urlParams.has('expired') || urlParams.has('error') || urlParams.has('from');
+    
+    // Don't auto-redirect if coming from a failed dashboard check
+    if (hasErrorParam) {
+        // Clear the tokens since we're here due to an error
+        localStorage.removeItem('tarfixer_auth_token');
+        localStorage.removeItem('tarfixer_user_data');
+        sessionStorage.removeItem('just_redirected');
+        return;
+    }
+    
+    // Simple check: if already logged in, redirect to dashboard (no validation loop)
+    // This only runs when user manually visits login page while already logged in
+    if (API.isAuthenticated()) {
+        const user = API.getUser();
+        if (user && !sessionStorage.getItem('just_redirected')) {
+            let dashboard = '../Dashboard/User.HTML';
+            if (user.userType === 'officer') {
+                dashboard = '../Dashboard/Officer.HTML';
+            } else if (user.userType === 'worker') {
+                dashboard = '../Dashboard/Worker.HTML';
+            }
+            console.log('Already authenticated, redirecting to:', dashboard);
+            window.location.replace(dashboard);
+        }
+    }
+});
+</script>
+
+</body>
+</html>

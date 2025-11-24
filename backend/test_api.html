@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarFixer Backend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            overflow-x: auto;
+        }
+        .success {
+            border-left-color: #28a745;
+        }
+        .error {
+            border-left-color: #dc3545;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 TarFixer Backend API Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Health Check</h2>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="health-result" class="result" style="display:none"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Sign Up Test</h2>
+        <input type="email" id="signup-email" placeholder="Email" value="testuser@gmail.com" style="padding:8px; width:250px">
+        <input type="password" id="signup-password" placeholder="Password" value="Test1234" style="padding:8px; width:150px">
+        <button onclick="testSignup()">Test Signup</button>
+        <div id="signup-result" class="result" style="display:none"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Login Test</h2>
+        <input type="email" id="login-email" placeholder="Email" value="testuser@gmail.com" style="padding:8px; width:250px">
+        <input type="password" id="login-password" placeholder="Password" value="Test1234" style="padding:8px; width:150px">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result" class="result" style="display:none"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Validate Session</h2>
+        <button onclick="testValidate()">Test Validate Token</button>
+        <div id="validate-result" class="result" style="display:none"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Mock Detection Test</h2>
+        <input type="file" id="image-file" accept="image/*">
+        <button onclick="testDetection()">Test Detection</button>
+        <div id="detection-result" class="result" style="display:none"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let authToken = null;
+        
+        function showResult(elementId, data, isSuccess = true) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'result ' + (isSuccess ? 'success' : 'error');
+            el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+        
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResult('health-result', data, response.ok);
+            } catch (error) {
+                showResult('health-result', {error: error.message}, false);
+            }
+        }
+        
+        async function testSignup() {
+            try {
+                const email = document.getElementById('signup-email').value;
+                const password = document.getElementById('signup-password').value;
+                
+                const response = await fetch(`${API_BASE}/auth/signup`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await response.json();
+                showResult('signup-result', data, response.ok);
+            } catch (error) {
+                showResult('signup-result', {error: error.message}, false);
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    authToken = data.token;
+                    data._note = '✅ Token saved! You can now test validate and detection';
+                }
+                
+                showResult('login-result', data, response.ok);
+            } catch (error) {
+                showResult('login-result', {error: error.message}, false);
+            }
+        }
+        
+        async function testValidate() {
+            try {
+                if (!authToken) {
+                    showResult('validate-result', {error: 'No token! Please login first'}, false);
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/auth/validate`, {
+                    headers: {'Authorization': `Bearer ${authToken}`}
+                });
+                const data = await response.json();
+                showResult('validate-result', data, response.ok);
+            } catch (error) {
+                showResult('validate-result', {error: error.message}, false);
+            }
+        }
+        
+        async function testDetection() {
+            try {
+                if (!authToken) {
+                    showResult('detection-result', {error: 'No token! Please login first'}, false);
+                    return;
+                }
+                
+                const fileInput = document.getElementById('image-file');
+                if (!fileInput.files[0]) {
+                    showResult('detection-result', {error: 'Please select an image file'}, false);
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('image', fileInput.files[0]);
+                
+                const response = await fetch(`${API_BASE}/detect`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${authToken}`},
+                    body: formData
+                });
+                const data = await response.json();
+                showResult('detection-result', data, response.ok);
+            } catch (error) {
+                showResult('detection-result', {error: error.message}, false);
+            }
+        }
+    </script>
+</body>
+</html>

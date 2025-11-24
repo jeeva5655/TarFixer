@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarFixer - Authentication Test Page</title>
+    <script src="auth.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            color: #333;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        .test-section {
+            margin-bottom: 30px;
+        }
+        .test-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+        .email-example {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .email-example strong {
+            color: #667eea;
+        }
+        .email-example .result {
+            margin-top: 8px;
+            color: #28a745;
+            font-weight: 600;
+        }
+        .test-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result-box.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+        .result-box.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .badge-officer { background: #d1ecf1; color: #0c5460; }
+        .badge-worker { background: #fff3cd; color: #856404; }
+        .badge-user { background: #d4edda; color: #155724; }
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .info-box strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 TarFixer Authentication Test Page</h1>
+
+        <div class="card">
+            <div class="info-box">
+                <strong>ℹ️ How it works:</strong> Enter any email address below. The system will automatically determine which dashboard you should access based on your email domain.
+            </div>
+
+            <div class="test-section">
+                <h2>📧 Email Domain → Dashboard Mapping</h2>
+                
+                <div class="email-example">
+                    <strong>Officer Emails:</strong>
+                    <div>Examples: admin@officer.com, jeeva@office.com</div>
+                    <div class="result">→ Routes to Officer Dashboard</div>
+                </div>
+
+                <div class="email-example">
+                    <strong>Worker Emails:</strong>
+                    <div>Examples: ramesh@worker.com, contractor@worker.com</div>
+                    <div class="result">→ Routes to Worker Dashboard</div>
+                </div>
+
+                <div class="email-example">
+                    <strong>User Emails:</strong>
+                    <div>Examples: yourname@gmail.com, user@yahoo.com, anyone@example.com</div>
+                    <div class="result">→ Routes to User Dashboard</div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>🧪 Test Email Detection</h2>
+                <div class="test-form">
+                    <div class="form-group">
+                        <label for="testEmail">Enter Email Address:</label>
+                        <input type="email" id="testEmail" placeholder="example@gmail.com">
+                    </div>
+                    <button onclick="testEmailDetection()">Check User Type</button>
+                    <div id="testResult" class="result-box"></div>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h2>🚀 Quick Test Login</h2>
+                <p style="margin-bottom: 15px;">Use these credentials to test each dashboard type:</p>
+                
+                <div class="test-form">
+                    <div class="form-group">
+                        <label for="quickEmail">Email:</label>
+                        <input type="email" id="quickEmail" placeholder="test@officer.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="quickPassword">Password (any password):</label>
+                        <input type="password" id="quickPassword" placeholder="Test@1234">
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <button onclick="fillQuickLogin('test@officer.com')">Test Officer</button>
+                        <button onclick="fillQuickLogin('worker@worker.com')" style="background: #fd7e14; margin-left: 10px;">Test Worker</button>
+                        <button onclick="fillQuickLogin('user@gmail.com')" style="background: #28a745; margin-left: 10px;">Test User</button>
+                    </div>
+                    
+                    <button onclick="performQuickLogin()" style="width: 100%; background: #667eea;">Login & Go to Dashboard</button>
+                    <div id="quickResult" class="result-box"></div>
+                </div>
+            </div>
+
+            <div class="login-link">
+                <a href="Login/Choose_login.html">→ Go to Login Page</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;">📋 Current Authentication Status</h2>
+            <div id="authStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication status on load
+        function checkAuthStatus() {
+            const statusDiv = document.getElementById('authStatus');
+            
+            if (window.TarFixerAuth && window.TarFixerAuth.isAuthenticated()) {
+                const user = window.TarFixerAuth.getCurrentUser();
+                statusDiv.innerHTML = `
+                    <div style="background: #d4edda; padding: 15px; border-radius: 8px; border: 1px solid #c3e6cb;">
+                        <strong style="color: #155724;">✅ Logged In</strong>
+                        <div style="margin-top: 10px; color: #155724;">
+                            <div><strong>Name:</strong> ${user.name}</div>
+                            <div><strong>Email:</strong> ${user.email}</div>
+                            <div><strong>Type:</strong> <span class="status-badge badge-${user.userType}">${user.userType.toUpperCase()}</span></div>
+                        </div>
+                        <button onclick="logoutUser()" style="margin-top: 15px; background: #dc3545;">Logout</button>
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border: 1px solid #f5c6cb; color: #721c24;">
+                        <strong>❌ Not Logged In</strong>
+                        <div style="margin-top: 10px;">Please log in to access dashboards.</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Test email detection
+        function testEmailDetection() {
+            const email = document.getElementById('testEmail').value.trim();
+            const resultDiv = document.getElementById('testResult');
+            
+            if (!email) {
+                resultDiv.className = 'result-box error';
+                resultDiv.textContent = 'Please enter an email address';
+                return;
+            }
+
+            if (window.TarFixerAuth) {
+                const userType = window.TarFixerAuth.determineUserType(email);
+                
+                if (userType) {
+                    resultDiv.className = 'result-box success';
+                    resultDiv.innerHTML = `
+                        <strong>✅ Detection Result:</strong><br>
+                        Email: <strong>${email}</strong><br>
+                        User Type: <span class="status-badge badge-${userType}">${userType.toUpperCase()}</span><br>
+                        Dashboard: <strong>${userType.charAt(0).toUpperCase() + userType.slice(1)} Dashboard</strong>
+                    `;
+                } else {
+                    resultDiv.className = 'result-box error';
+                    resultDiv.textContent = 'Unable to determine user type from this email';
+                }
+            } else {
+                resultDiv.className = 'result-box error';
+                resultDiv.textContent = 'Authentication system not loaded';
+            }
+        }
+
+        // Fill quick login form
+        function fillQuickLogin(email) {
+            document.getElementById('quickEmail').value = email;
+            document.getElementById('quickPassword').value = 'Test@1234';
+        }
+
+        // Perform quick login
+        async function performQuickLogin() {
+            const email = document.getElementById('quickEmail').value.trim();
+            const password = document.getElementById('quickPassword').value;
+            const resultDiv = document.getElementById('quickResult');
+            
+            if (!email || !password) {
+                resultDiv.className = 'result-box error';
+                resultDiv.textContent = 'Please enter both email and password';
+                return;
+            }
+
+            if (window.TarFixerAuth) {
+                try {
+                    await window.TarFixerAuth.manualLogin(email, password);
+                    // If successful, user will be redirected
+                } catch (error) {
+                    resultDiv.className = 'result-box error';
+                    resultDiv.textContent = 'Login failed: ' + error.message;
+                }
+            } else {
+                resultDiv.className = 'result-box error';
+                resultDiv.textContent = 'Authentication system not loaded';
+            }
+        }
+
+        // Logout
+        function logoutUser() {
+            if (window.TarFixerAuth) {
+                window.TarFixerAuth.logout();
+            }
+        }
+
+        // Allow Enter key to submit forms
+        document.getElementById('testEmail').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') testEmailDetection();
+        });
+
+        document.getElementById('quickPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') performQuickLogin();
+        });
+
+        // Initialize
+        window.addEventListener('load', checkAuthStatus);
+    </script>
+</body>
+</html>

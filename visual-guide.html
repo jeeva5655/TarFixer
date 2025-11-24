@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarFixer Authentication System - Visual Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 30px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            font-size: 36px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .diagram-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .flow-step {
+            width: 100%;
+            max-width: 600px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            position: relative;
+        }
+        .flow-step.decision {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+            padding: 30px 50px;
+        }
+        .flow-step.end {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 30px solid rgba(255,255,255,0.3);
+            margin: 0 auto;
+        }
+        .branches {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .branch {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            border: 3px solid;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .branch.officer { border-color: #667eea; }
+        .branch.worker { border-color: #fd7e14; }
+        .branch.user { border-color: #28a745; }
+        .branch h3 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .branch.officer h3 { color: #667eea; }
+        .branch.worker h3 { color: #fd7e14; }
+        .branch.user h3 { color: #28a745; }
+        .email-examples {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .email-examples div {
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .feature-card h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        .feature-card p {
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+        .icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+        .quick-links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .quick-link {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .quick-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        @media (max-width: 768px) {
+            .branches { flex-direction: column; }
+            h1 { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 TarFixer Authentication System</h1>
+
+        <!-- Flow Diagram -->
+        <div class="diagram-card">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Authentication Flow</h2>
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <div class="icon">🌐</div>
+                    <h3>User Opens Login Page</h3>
+                    <p>Login/Choose_login.html</p>
+                </div>
+                
+                <div class="arrow"></div>
+                
+                <div class="flow-step">
+                    <div class="icon">✉️</div>
+                    <h3>User Enters Email & Password</h3>
+                    <p>Example: admin@officer.com</p>
+                </div>
+                
+                <div class="arrow"></div>
+                
+                <div class="flow-step decision">
+                    <div class="icon">🔍</div>
+                    <h3>System Analyzes Email Domain</h3>
+                    <p>Checks domain against configured patterns</p>
+                </div>
+                
+                <div style="width: 100%; margin: 20px 0;">
+                    <div class="branches">
+                        <div class="branch officer">
+                            <div class="icon">👮</div>
+                            <h3>Officer</h3>
+                            <div class="email-examples">
+                                <div>@officer.com</div>
+                                <div>@office.com</div>
+                            </div>
+                            <div class="arrow" style="margin-top: 20px;"></div>
+                            <div style="margin-top: 15px; font-weight: 600; color: #667eea;">
+                                Officer Dashboard
+                            </div>
+                        </div>
+                        
+                        <div class="branch worker">
+                            <div class="icon">👷</div>
+                            <h3>Worker</h3>
+                            <div class="email-examples">
+                                <div>@worker.com</div>
+                            </div>
+                            <div class="arrow" style="margin-top: 20px;"></div>
+                            <div style="margin-top: 15px; font-weight: 600; color: #fd7e14;">
+                                Worker Dashboard
+                            </div>
+                        </div>
+                        
+                        <div class="branch user">
+                            <div class="icon">👤</div>
+                            <h3>User</h3>
+                            <div class="email-examples">
+                                <div>@gmail.com</div>
+                                <div>@yahoo.com</div>
+                                <div>@any-domain.com</div>
+                            </div>
+                            <div class="arrow" style="margin-top: 20px;"></div>
+                            <div style="margin-top: 15px; font-weight: 600; color: #28a745;">
+                                User Dashboard
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flow-step end">
+                    <div class="icon">✅</div>
+                    <h3>User Redirected to Correct Dashboard</h3>
+                    <p>Session stored • User info displayed • Access granted</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <div class="diagram-card">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="icon">🎯</div>
+                    <h3>Smart Detection</h3>
+                    <p>Automatically identifies user type based on email domain. No manual selection needed.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">🔒</div>
+                    <h3>Dashboard Protection</h3>
+                    <p>Each dashboard checks authentication and user type. Unauthorized access is blocked.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">🔄</div>
+                    <h3>Smart Routing</h3>
+                    <p>Wrong dashboard? System automatically redirects you to the correct one.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">💾</div>
+                    <h3>Session Management</h3>
+                    <p>Stay logged in across page refreshes. Session persists until logout.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">👤</div>
+                    <h3>User Display</h3>
+                    <p>Shows your name, email, and initials in each dashboard.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="icon">⚡</div>
+                    <h3>Fast & Easy</h3>
+                    <p>Just enter your email and password. System handles the rest instantly.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Email Examples -->
+        <div class="diagram-card">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">Real Email Examples</h2>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
+                <div style="background: #e7f3ff; padding: 25px; border-radius: 15px; border-left: 5px solid #667eea;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">👮 Officer Emails</h3>
+                    <div style="font-family: 'Courier New', monospace; line-height: 1.8;">
+                        <div>✉️ admin@officer.com</div>
+                        <div>✉️ jeeva@office.com</div>
+                        <div>✉️ manager@officer.com</div>
+                    </div>
+                    <div style="margin-top: 15px; color: #667eea; font-weight: 600;">
+                        → Officer Dashboard
+                    </div>
+                </div>
+                
+                <div style="background: #fff4e6; padding: 25px; border-radius: 15px; border-left: 5px solid #fd7e14;">
+                    <h3 style="color: #fd7e14; margin-bottom: 15px;">👷 Worker Emails</h3>
+                    <div style="font-family: 'Courier New', monospace; line-height: 1.8;">
+                        <div>✉️ ramesh@worker.com</div>
+                        <div>✉️ contractor@worker.com</div>
+                        <div>✉️ field@worker.com</div>
+                    </div>
+                    <div style="margin-top: 15px; color: #fd7e14; font-weight: 600;">
+                        → Worker Dashboard
+                    </div>
+                </div>
+                
+                <div style="background: #e8f5e9; padding: 25px; border-radius: 15px; border-left: 5px solid #28a745;">
+                    <h3 style="color: #28a745; margin-bottom: 15px;">👤 User Emails</h3>
+                    <div style="font-family: 'Courier New', monospace; line-height: 1.8;">
+                        <div>✉️ jeeva@gmail.com</div>
+                        <div>✉️ user@yahoo.com</div>
+                        <div>✉️ anyone@example.com</div>
+                    </div>
+                    <div style="margin-top: 15px; color: #28a745; font-weight: 600;">
+                        → User Dashboard
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div style="text-align: center; margin-top: 40px;">
+            <h2 style="color: white; margin-bottom: 20px;">Get Started</h2>
+            <div class="quick-links">
+                <a href="test-auth.html" class="quick-link">🧪 Test Authentication</a>
+                <a href="Login/Choose_login.html" class="quick-link">🔐 Go to Login</a>
+                <a href="QUICKSTART.md" class="quick-link">📖 Quick Start Guide</a>
+                <a href="LOGIN_SYSTEM_GUIDE.md" class="quick-link">📚 Full Documentation</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

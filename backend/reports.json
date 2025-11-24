@@ -1,0 +1,15 @@
+[
+    {
+        "latitude": "--",
+        "longitude": "--",
+        "severity": "Damage Percentage: 61.48% (Severe)",
+        "timestamp": "2025-11-10T06:23:48.092Z",
+        "image": null
+    },
+    {
+        "latitude": "--",
+        "longitude": "--",
+        "severity": "Damage Percentage: 44.31% (Moderate)",
+        "timestamp": "2025-11-10T10:32:51.687Z"
+    }
+]

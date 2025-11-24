@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TarFixer — User Dashboard</title>
+
+<!-- API Client -->
+<script src="../api-client.js?v=2"></script>
+
+<style>
+  :root{
+    --bg-dark:#071728;
+    --card-dark: #152639; /* Solid Dark */
+    --text-light:#e6f2f1;
+    --muted: rgba(255,255,255,0.7);
+    --accent:#00e6a8;
+    --danger:#ff3b3b;
+    --yellow:#ffbf00;
+    --green:#00cc66;
+    
+    /* Light Theme Variables */
+    --light-bg:#f6f8fb;
+    --light-card:#ffffff;
+    --light-text:#0a0a0a;
+    --light-muted:#666666;
+    
+    --modal-bg: rgba(7,23,40,0.96); 
+  }
+
+  /* Basic layout */
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    background:var(--bg-dark);
+    color:var(--text-light);
+    padding:14px;
+    transition: background .25s, color .25s;
+  }
+
+  /* Light Theme Overrides */
+  .light { background: var(--light-bg); color: var(--light-text); }
+  .light .card { background: var(--light-card); color: var(--light-text); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  .light .muted { color: var(--light-muted); }
+  .light .modal { background: var(--light-card); color: var(--light-text); }
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+
+  h1{margin:0;font-size:22px}
+  .muted{opacity:0.85;font-size:13px;margin-top:6px;color:var(--muted);}
+
+  .card{
+    background:var(--card-dark);
+    padding:14px;
+    border-radius:12px;
+    margin-bottom:18px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+
+  /* Profile top-right */
+  .profile-wrap { display:flex; align-items:center; gap:10px; position:relative; }
+  .avatar {
+    width:44px; height:44px; border-radius:50%;
+    background:#3a6; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:700; cursor:pointer;
+  }
+  .profile-name { font-size:14px; font-weight:600; cursor:pointer; color:inherit; }
+
+  /* Dropdown Styling */
+  .dropdown { 
+    position:absolute; right:0; top:58px; 
+    background:var(--card-dark); /* Default Dark BG */
+    color: var(--text-light);    /* Default Light Text */
+    padding:8px; border-radius:10px; min-width:220px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.35); 
+    display:none; z-index:50;
+  }
+  
+  /* FIX: Specific styling for Dropdown in Light Mode */
+  .light .dropdown {
+    background: var(--light-card);
+    color: var(--light-text);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    border: 1px solid #e0e0e0;
+  }
+
+  .dropdown.show{ display:block; }
+  .dropdown button, .dropdown .link { display:block; width:100%; text-align:left; padding:8px 10px; border-radius:8px; background:transparent; color:inherit; border:none; cursor:pointer; }
+  .dropdown .sep { border-top:1px solid rgba(255,255,255,0.1); margin:6px 0; }
+  
+  /* Fix separator color in light mode */
+  .light .dropdown .sep { border-top: 1px solid rgba(0,0,0,0.1); }
+  .light .dropdown button:hover { background: rgba(0,0,0,0.05); }
+  .dropdown button:hover { background: rgba(255,255,255,0.05); }
+
+
+  /* camera */
+  #cameraView{ width:100%; height:auto; max-height:360px; border-radius:10px; background:#000; }
+  #capturedImg{ width:100%; border-radius:10px; display:none; margin-top:8px; }
+
+  .controls { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  .btn{ padding:10px 14px; border:none; border-radius:10px; cursor:pointer; font-size:15px; transition: all 0.3s; }
+  .btn:hover{ transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+  .btn-analyse{ background:var(--accent); color:#002; }
+  .btn-red{ background:var(--danger); color:#fff; }
+  .btn-yellow{ background:var(--yellow); color:#000; }
+  .btn-green{ background:var(--green); color:#fff; }
+  
+  #uploadImageInput + span { font-size: 13px; opacity: 0.7; margin-left: 10px; }
+
+  /* analysis area */
+  #submitButtons { margin-top:12px; }
+
+  /* success box & permanent */
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .success-box{ margin-top:12px; padding:10px 12px; background:#0f5132; color:#d1e7dd; border-radius:8px; border:1px solid #badbcc; display:flex; gap:8px; align-items:center; animation:fadeIn .2s; }
+  .permanent-msg{ margin-top:12px; color:var(--accent); font-size:15px; display:none; }
+  .light .permanent-msg { color: #008a65; font-weight: 600; }
+
+  /* reports */
+  .counts{ display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
+  .count-pill{ padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; font-weight:600; font-size:14px; }
+  .light .count-pill { background: rgba(0,0,0,0.05); color: var(--light-text); }
+
+  .report-item{ padding:10px; border-radius:10px; background: rgba(0,0,0,0.12); margin-top:8px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .light .report-item{ background: #f1f5f9; color:var(--light-text); border: 1px solid #eee; }
+
+  .report-meta{ font-size:13px; color:var(--muted); }
+  .light .report-meta { color: var(--light-muted); }
+
+  .status-badge{ padding:6px 10px; border-radius:8px; font-weight:700; font-size:13px; }
+
+  .status-submitted{ background:#e6f0ff; color:#072; }
+  .status-ongoing{ background:#fff0e6; color:#a64f00; }
+  .status-resolved{ background:#e9f7ee; color:#064; }
+  .status-rejected{ background:#fdecea; color:#8b0000; }
+
+  /* modal */
+  .modal-back{ position:fixed; inset:0; background: var(--modal-bg); display:none; align-items:center; justify-content:center; z-index:90; }
+  .modal-back.show{ display:flex; }
+  .modal{ width:94%; max-width:560px; background:var(--card-dark); padding:16px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+  .light .modal{ background:var(--light-card); color:var(--light-text); }
+
+  /* Inputs in light mode */
+  .light input, .light select { background: #fff; color: #333; border: 1px solid #ccc; }
+  
+  /* responsive tweaks */
+  @media (min-width:760px){ .card { padding:18px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 data-key="title">TarFixer — User Dashboard</h1>
+    <div class="muted" data-key="subtitle">Capture road damage, analyse severity and submit report.</div>
+  </div>
+
+  <div class="profile-wrap" id="profileWrap">
+    <div class="avatar" id="avatarBtn">U</div>
+    <div class="profile-name" id="profileName">User</div>
+
+    <div class="dropdown" id="profileDropdown" aria-hidden="true">
+      <div style="padding:6px 8px; font-weight:700">
+        <span data-key="signedAs">Signed in as</span>
+        <div style="font-weight:900" id="dropdownName">User</div>
+        <div style="font-size:12px; color:var(--muted); font-weight:400; margin-top:4px;" id="dropdownEmail"></div>
+      </div>
+      <div class="sep"></div>
+      <button class="link" id="settingsBtn" data-key="settings">Settings</button>
+      <div class="sep"></div>
+      <button class="link" id="logoutBtn" data-key="signOut">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<div class="card">
+  <h2 data-key="captureTitle">Capture Road Image</h2>
+  <video id="cameraView" autoplay playsinline></video>
+  <canvas id="cameraCanvas" style="display:none"></canvas>
+  <img id="capturedImg" alt="Captured" style="display:none;" />
+
+  <div class="controls">
+    <button class="btn btn-analyse" id="startCameraBtn" data-key="startCamera">🎥 Start Camera</button>
+    <button class="btn" id="captureBtn" disabled data-key="capturePhoto">📸 Capture Photo</button>
+    <button class="btn" id="stopCameraBtn" disabled data-key="stopCamera">⏹️ Stop Camera</button>
+  </div>
+  
+  <div style="margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.1);">
+    <label for="uploadImageInput" class="btn" style="cursor:pointer;display:inline-block;">
+      📁 Upload Image
+    </label>
+    <input type="file" id="uploadImageInput" accept="image/*" style="display:none;" />
+    <span id="uploadedFileName" style="margin-left:10px;font-size:13px;opacity:0.8;"></span>
+  </div>
+
+  <div style="margin-top:15px;padding:15px;background:rgba(255,255,255,0.05);border-radius:8px;">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;opacity:0.7;">📍 GPS Location from Image:</div>
+    <div><span data-key="lat">Latitude</span>: <span id="lat" style="font-weight:600;color:#00e6a8;">--</span></div>
+    <div><span data-key="long">Longitude</span>: <span id="lng" style="font-weight:600;color:#00e6a8;">--</span></div>
+    <div id="error" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+</div>
+
+<div class="card" id="analyseCard" style="display:none;">
+  <h2 data-key="analyseTitle">Analyse Damage</h2>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <button class="btn btn-analyse" id="analyseBtn" data-key="analyseImage">Analyse Image</button>
+    <div class="small" data-key="damageSeverity">Damage Severity:</div>
+    <div id="severityText" style="font-weight:700;margin-left:6px">--%</div>
+  </div>
+
+  <div id="submitButtons"></div>
+
+  <div id="permanentApp" class="permanent-msg" data-key="appreciationMessage">
+    We appreciate your valuable contribution towards maintaining road safety and quality.
+  </div>
+</div>
+
+<div id="reportsSummaryCard" class="card" style="display:none">
+  <h3 data-key="yourReports">Your Reports (summary)</h3>
+  <div class="counts" id="countsWrap"></div>
+  <div id="reportsList" style="margin-top:10px;"></div>
+</div>
+
+<div class="modal-back" id="settingsModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <h3 id="settingsTitle" data-key="settings">Settings</h3>
+
+    <div style="margin-top:10px;">
+      <label style="font-weight:700" data-key="profileNameLabel">Profile name</label><br>
+      <input id="inputName" style="width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid rgba(0,0,0,0.12)" />
+    </div>
+
+    <div style="margin-top:12px;">
+      <label style="font-weight:700" data-key="languageSelectLabel">Language (select)</label><br>
+      <select id="langSelect" style="width:100%;padding:8px;margin-top:6px;border-radius:8px;"></select>
+    </div>
+
+    <div style="margin-top:12px; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <div style="font-weight:700" data-key="themeLabel">Theme</div>
+        <div class="small" data-key="themeHelp">Toggle between dark and bright themes</div>
+      </div>
+      <div>
+        <button id="themeToggle" class="btn">🌙 Dark</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+      <button id="saveSettings" class="btn btn-analyse" data-key="save">Save</button>
+      <button id="closeSettings" class="btn" data-key="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-back" id="reportsModal">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 data-key="yourReports">Your Reports</h3>
+    <div class="counts" id="modalCounts"></div>
+    <div id="modalReportsList" style="margin-top:12px; max-height:360px; overflow:auto;"></div>
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button id="closeReports" class="btn" data-key="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- Storage keys ---------- */
+const STORAGE_PROFILE = 'tarfixer_profile_v2';
+const STORAGE_REPORTS = 'tarfixer_reports_v2';
+
+/* ---------- default profile ---------- */
+const defaultProfile = {
+  name: 'Siva S',
+  language: 'English',
+  theme: 'dark'
+};
+
+/* ---------- translation pack: Option A (10 languages) ---------- */
+const translations = {
+  "English": {
+    title: "TarFixer — User Dashboard",
+    subtitle: "Capture road damage, analyse severity and submit report.",
+    signedAs: "Signed in as",
+    yourReports: "Your Reports",
+    settings: "Settings",
+    signOut: "Sign out",
+    captureTitle: "Capture Road Image",
+    startCamera: "Start Camera",
+    capturePhoto: "Capture Photo",
+    stopCamera: "Stop Camera",
+    getGps: "Get GPS",
+    lat: "Lat",
+    long: "Long",
+    analyseTitle: "Analyse Damage",
+    analyseImage: "Analyse Image",
+    damageSeverity: "Damage Severity:",
+    submitSevere: "Submit Severe Report",
+    submitMedium: "Submit Medium Report",
+    submitLow: "Submit Low Report",
+    reportSuccess: "Report submitted successfully.",
+    appreciationMessage: "We appreciate your valuable contribution towards maintaining road safety and quality.",
+    notSevere: "The submitted report indicates that the road damage is not severe.",
+    settingsLabel: "Settings",
+    profileNameLabel: "Profile name",
+    languageSelectLabel: "Language (select)",
+    themeLabel: "Theme",
+    themeHelp: "Toggle between dark and bright themes",
+    save: "Save",
+    close: "Close"
+  },
+  "Tamil": {
+    title: "TarFixer — பயனர் டாஷ்போர்ட்",
+    subtitle: "சாலை சேதத்தை பதிவு செய்து தீவிரத்தை பகுப்பாய்வு செய்து அறிக்கை சமர்ப்பிக்கவும்.",
+    signedAs: "உடாரம்:",
+    yourReports: "உங்கள் அறிக்கைகள்",
+    settings: "அமைப்புகள்",
+    signOut: "வெளியேறு",
+    captureTitle: "சாலை படம் பிடிக்கவும்",
+    startCamera: "கேமரா தொடங்கு",
+    capturePhoto: "புகைப்படம் பிடி",
+    stopCamera: "கேமராவை நிறுத்தவும்",
+    getGps: "GPS பெங்கு",
+    lat: "அட்சிம்",
+    long: "நெடுங்கோடு",
+    analyseTitle: "சேதம் மறுபரிசீலனை",
+    analyseImage: "படத்தை பகுப்பாய்வு செய்",
+    damageSeverity: "நோயின் தீவிரம்:",
+    submitSevere: "கடுமையான அறிக்கையை சமர்ப்பிக்கவும்",
+    submitMedium: "மத்திய நிலை அறிக்கையை சமர்ப்பிக்கவும்",
+    submitLow: "குறைந்த நிலை அறிக்கையை சமர்ப்பிக்கவும்",
+    reportSuccess: "அறிக்கை வெற்றிகரமாக சமர்ப்பிக்கப்பட்டு உள்ளது.",
+    appreciationMessage: "சாலை பாதுகாப்பு மற்றும் தரத்தை பராமரிப்பதில் உங்கள் மதிப்புமிக்க பங்களிப்பிற்கு நன்றி.",
+    notSevere: "பதிவான அறிக்கை கடுமை இல்லாமையைக் குறிக்கிறது.",
+    settingsLabel: "அமைப்புகள்",
+    profileNameLabel: "பயனர் பெயர்",
+    languageSelectLabel: "மொழி (தேர்வு)",
+    themeLabel: "தீம்",
+    themeHelp: "இருண்ட மற்றும் ஒளிர் தீம்களுக்கு இடையில் மாற்றவும்",
+    save: "சேமிக்க",
+    close: "மூடு"
+  },
+  "Hindi": {
+    title: "TarFixer — उपयोगकर्ता डैशबोर्ड",
+    subtitle: "सड़क क्षति कैप्चर करें, गंभीरता विश्लेषण करें और रिपोर्ट सबमिट करें।",
+    signedAs: "कुल मिलाकर:",
+    yourReports: "आपकी रिपोर्टें",
+    settings: "सेटिंग्स",
+    signOut: "साइन आउट",
+    captureTitle: "सड़क छवि कैप्चर करें",
+    startCamera: "कैमरा शुरू करें",
+    capturePhoto: "फोटो कैप्चर करें",
+    stopCamera: "कैमरा बंद करें",
+    getGps: "GPS प्राप्त करें",
+    lat: "अक्षांश",
+    long: "देशांतर",
+    analyseTitle: "क्षति विश्लेषण",
+    analyseImage: "छवि का विश्लेषण करें",
+    damageSeverity: "क्षति की गंभीरता:",
+    submitSevere: "गंभीर रिपोर्ट सबमिट करें",
+    submitMedium: "मध्यम रिपोर्ट सबमिट करें",
+    submitLow: "कम रिपोर्ट सबमिट करें",
+    reportSuccess: "रिपोर्ट सफलतापूर्वक प्रस्तुत की गई।",
+    appreciationMessage: "सड़कों की सुरक्षा और गुणवत्ता बनाए रखने में आपके बहुमूल्य योगदान के लिए धन्यवाद।",
+    notSevere: "दर्ज रिपोर्ट में गंभीरता नहीं दिखाई देती है।",
+    settingsLabel: "सेटिंग्स",
+    profileNameLabel: "प्रोफ़ाइल नाम",
+    languageSelectLabel: "भाषा (चुनें)",
+    themeLabel: "थीम",
+    themeHelp: "डार्क और ब्राइट मोड के बीच टॉगल करें",
+    save: "सहेजें",
+    close: "बंद करें"
+  },
+  "Telugu": {
+    title: "TarFixer — యూజర్ డ్యాష్‌బోర్డ్",
+    subtitle: "రోడ్డు నష్టం క్యాప్చర్ చేసి తీవ్రతను విశ్లేషించి నివేదిక సమర్పించండి.",
+    signedAs: "మీ పేరు:",
+    yourReports: "మీ నివేదికలు",
+    settings: "సెట్టింగ్స్",
+    signOut: "సైన్ అవుట్",
+    captureTitle: "రోడ్డు చిత్రం పట్టుకోండి",
+    startCamera: "కెమెరా ప్రారంభం",
+    capturePhoto: "ఫోటో పట్టుకోండి",
+    stopCamera: "కెమెరాను నిలిపివేయి",
+    getGps: "GPS పొందు",
+    lat: "అక్షాంశ",
+    long: "రేఖాంశం",
+    analyseTitle: "నష్టం విశ్లేషణ",
+    analyseImage: "చిత్రాన్ని విశ్లేషించండి",
+    damageSeverity: "నష్ట తీవ్రత:",
+    submitSevere: "తీవ్ర నివేదికను సమర్పించండి",
+    submitMedium: "మధ్యస్థ నివేదిక సమర్పించండి",
+    submitLow: "తక్కువ స్థాయి నివేదిక సమర్పించండి",
+    reportSuccess: "నివేదిక విజయవంతంగా సమర్పించబడింది.",
+    appreciationMessage: "రోడు భద్రత మరియు నాణ్యత నిర్వహణలో మీ విలువైన సహకారానికి ధన్యవాదాలు.",
+    notSevere: "నివేదిక చూపించే నష్టం తీవ్రం తక్కువగా ఉంది.",
+    settingsLabel: "సెట్టింగ్స్",
+    profileNameLabel: "ప్రొఫైల్ పేరు",
+    languageSelectLabel: "భాష (ఎంచుకోండి)",
+    themeLabel: "థీమ్",
+    themeHelp: "డార్క్ మరియు బ్రైట్ థీమ్‌ల మధ్య టోగుల్ చేయండి",
+    save: "సేవ్",
+    close: "తెరువు"
+  },
+  "Malayalam": {
+    title: "TarFixer — ഉപയോക്തൃ ഡാഷ്ബോർഡ്",
+    subtitle: "റോഡ് നാശനഷ്‌ട് പിടിച്ചു ഗൗരവം വിശകലനം ചെയ്ത് റിപ്പോർട്ട് സമർപ്പിക്കുക.",
+    signedAs: "സൈന്‍ഡിന്റെ നാമം:",
+    yourReports: "നിങ്ങളുടെ റിപ്പോർട്ടുകൾ",
+    settings: "സെറ്റിങ്ങുകൾ",
+    signOut: "സൈന്‍ ഔട്ട്",
+    captureTitle: "റോഡ് ചിത്രം പിടിക്കുക",
+    startCamera: "ക്യാമറ ആരംഭിക്കുക",
+    capturePhoto: "ഫോട്ടോ പിടിക്കുക",
+    stopCamera: "ക്യാമറ നിർത്തുക",
+    getGps: "GPS നേടുക",
+    lat: "അക്ഷാംശം",
+    long: "രേഖാംശം",
+    analyseTitle: "നാശം വിശകലനം",
+    analyseImage: "ഇമേജ് വിശകലനം ചെയ്യുക",
+    damageSeverity: "നഷ്ടത്തിന്റെ ഗൗരവം:",
+    submitSevere: "ഗൗരവമാർന്ന റിപ്പോർട്ട് സമർപ്പിക്കൽ",
+    submitMedium: "മധ്യനില റിപ്പോർട്ട് സമർപ്പിക്കുക",
+    submitLow: "കുറഞ്ഞ നിരിപ്പ് റിപ്പോർട്ട് സമർപ്പിക്കുക",
+    reportSuccess: "റിപ്പോർട്ട് വിജയകരമായി സമർപ്പിച്ചു.",
+    appreciationMessage: "റോഡ് സുരക്ഷയും ഗുണനിലവാരവും നിലനിർത്തുന്നതിന് നിങ്ങളുടെ വിലമതിക്കുന്ന സംഭാവനയ്ക്ക് നന്ദി.",
+    notSevere: "റിപ്പോർട്ട് കാണിക്കുന്നത് ഗൗരവമില്ല.",
+    settingsLabel: "സെറ്റിങ്ങുകൾ",
+    profileNameLabel: "പ്രൊഫൈൽ പേര്",
+    languageSelectLabel: "ഭാഷ (തിരഞ്ഞെടുക്കുക)",
+    themeLabel: "ഥീം",
+    themeHelp: "ഡാർക്ക്/ബ്രൈറ്റിന് ഇടയിൽ മാറ്റം ചെയ്യുക",
+    save: "സേവ്",
+    close: "സമാപിക്കുക"
+  },
+  "Kannada": {
+    title: "TarFixer — ಬಳಕೆದಾರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+    subtitle: "ರಸ್ತೆ ಹಾನಿಯನ್ನು ಕ್ಯಾಪ್ಚರ್ ಮಾಡಿ ಗಂಭೀರತೆ ವಿಶ್ಲೇಷಿಸಿ ವರದಿ ಸಲ್ಲಿಸಿ.",
+    signedAs: "ಸೈನ್ ಇನ್:",
+    yourReports: "ನಿಮ್ಮ ವರದಿಗಳು",
+    settings: "ಸೆಟ್ಟಿಂಗ್ಸ್",
+    signOut: "ಸೈನ್ ಔಟ್",
+    captureTitle: "ರಸ್ತೆ ಚಿತ್ರವನ್ನು ಸೆರೆಹಿಡಿ",
+    startCamera: "ಕ್ಯಾಮೆರಾ ಪ್ರಾರಂಭಿಸಿ",
+    capturePhoto: "ಫೋಟೋ ಸೆರೆಹಿಡಿ",
+    stopCamera: "ಕ್ಯಾಮೆರಾ ನಿಲ್ಲಿಸಿ",
+    getGps: "GPS ಪಡೆಯಿರಿ",
+    lat: "ಅಕ್ಷಾಂಶ",
+    long: "ದ್ರಮಾಂಶ",
+    analyseTitle: "ಹಾನಿ ವಿಶ್ಲೇಷಣೆ",
+    analyseImage: "ಚಿತ್ರವನ್ನು ವಿಶ್ಲೇಷಿಸಿ",
+    damageSeverity: "ಹಾನಿ ಗಂಭೀರತೆ:",
+    submitSevere: "ತೀವ್ರ ವರದಿ ಸಲ್ಲಿಸಿ",
+    submitMedium: "ಮಧ್ಯಮ ವರದಿ ಸಲ್ಲಿಸಿ",
+    submitLow: "ಕಡಿಮೆ ವರದಿ ಸಲ್ಲಿಸಿ",
+    reportSuccess: "ವರದಿ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ.",
+    appreciationMessage: "ರಸ್ತೆ ಸುರಕ್ಷತೆ ಮತ್ತು ಗುಣಮಟ್ಟವನ್ನು ಉಳಿಸಲು ನಿಮ್ಮ ಅಮೂಲ್ಯ ಸಹಾಯಕ್ಕೆ ಧನ್ಯವಾದಗಳು.",
+    notSevere: "ವರದಿ ತೀವ್ರವಿಲ್ಲದೆ ಇದೆ.",
+    settingsLabel: "ಸೆಟ್ಟಿಂಗ್ಸ್",
+    profileNameLabel: "ಪ್ರೊಫೈಲ್ ಹೆಸರು",
+    languageSelectLabel: "ಭಾಷೆ (ಆಯ್ಕೆಮಾಡಿ)",
+    themeLabel: "ಥೀಮ್",
+    themeHelp: "ಡಾರ್ಕ್ ಮತ್ತು ಬ್ರೈಟ್ ಮಧ್ಯೆ ಟಾಗಲ್ ಮಾಡಿ",
+    save: "ಸೇವ್",
+    close: "ಮುಚ್ಚಿ"
+  },
+  "Bengali": {
+    title: "TarFixer — ব্যবহারকারীর ড্যাশবোর্ড",
+    subtitle: "রাস্তার ক্ষতি ক্যাপচার করুন, তীব্রতা বিশ্লেষণ করুন এবং রিপোর্ট জমা দিন।",
+    signedAs: "সাইন ইন করা:",
+    yourReports: "আপনার রিপোর্টসমূহ",
+    settings: "সেটিংস",
+    signOut: "সাইন আউট",
+    captureTitle: "রোড ইমেজ ক্যাপচার করুন",
+    startCamera: "ক্যামেরা শুরু করুন",
+    capturePhoto: "ফটো ক্যাপচার করুন",
+    stopCamera: "ক্যামেরা বন্ধ করুন",
+    getGps: "GPS পান",
+    lat: "অক্ষাংশ",
+    long: "দ্রাঘিমাংশ",
+    analyseTitle: "ক্ষতি বিশ্লেষণ",
+    analyseImage: "ইমেজ বিশ্লেষণ করুন",
+    damageSeverity: "ক্ষতির তীব্রতা:",
+    submitSevere: "গুরুতর রিপোর্ট জমা দিন",
+    submitMedium: "মধ্যবর্তী রিপোর্ট জমা দিন",
+    submitLow: "কম রিপোর্ট জমা দিন",
+    reportSuccess: "রিপোর্ট সফলভাবে জমা হয়েছে।",
+    appreciationMessage: "সড়ক নিরাপত্তা ও গুণগতমান বজায় রাখায় আপনার মূল্যবান অবদানের জন্য ধন্যবাদ।",
+    notSevere: "দাখিলকৃত রিপোর্টে গুরুতরতা নেই।",
+    settingsLabel: "সেটিংস",
+    profileNameLabel: "প্রোফাইল নাম",
+    languageSelectLabel: "ভাষা (নির্বাচন)",
+    themeLabel: "থিম",
+    themeHelp: "ডার্ক এবং ব্রাইট থিম পরিবর্তন করুন",
+    save: "সংরক্ষণ",
+    close: "বন্ধ"
+  },
+  "Marathi": {
+    title: "TarFixer — वापरकर्ता डॅशबोर्ड",
+    subtitle: "रस्त्याचे नुकसान कॅप्चर करा, तीव्रता विश्लेषित करा आणि अहवाल सबमिट करा.",
+    signedAs: "साइन इन केले:",
+    yourReports: "आपल्या अहवाल",
+    settings: "सेटिंग्ज",
+    signOut: "साइन आउट",
+    captureTitle: "रस्ता प्रतिमा कॅप्चर करा",
+    startCamera: "कॅमेरा सुरू करा",
+    capturePhoto: "फोटो कॅप्चर करा",
+    stopCamera: "कॅमेरा थांबवा",
+    getGps: "GPS घ्या",
+    lat: "अक्षांश",
+    long: "रેખांश",
+    analyseTitle: "नुकसान विश्लेषण",
+    analyseImage: "इमेज चे विश्लेषण करा",
+    damageSeverity: "नुकसानाची तीव्रता:",
+    submitSevere: "गंभीर अहवाल सबमिट करा",
+    submitMedium: "मध्यम अहवाल सबमिट करा",
+    submitLow: "कमी अहवाल सबमिट करा",
+    reportSuccess: "अहवाल यशस्वीरित्या सबमिट केला गेला.",
+    appreciationMessage: "रस्ता सुरक्षा आणि गुणवत्ता राखण्यास आपला मौल्यवान योगदानाबद्दल धन्यवाद.",
+    notSevere: "नोंद केलेल्या अहवालात गंभीरता नाही.",
+    settingsLabel: "सेटिंग्ज",
+    profileNameLabel: "प्रोफाइल नाव",
+    languageSelectLabel: "भाषा (निवडा)",
+    themeLabel: "थीम",
+    themeHelp: "डार्क व ब्राइट थीममधील टॉगल करा",
+    save: "जतन करा",
+    close: "बंद करा"
+  },
+  "Gujarati": {
+    title: "TarFixer — વપરાશકર્તા ડેશબોર્ડ",
+    subtitle: "રોડનો નુકસાન કૅપ્ચર કરો, ગંભીરતા વિશ્લેષણ કરો અને રિપોર્ટ સબમિટ કરો.",
+    signedAs: "સાઇન ઇન તરીકે:",
+    yourReports: "તમારી રિપોર્ટ્સ",
+    settings: "સેટિંગ્સ",
+    signOut: "સાઇન આઉટ",
+    captureTitle: "રોડ ઈમેજ કૅપ્ચર કરો",
+    startCamera: "કેમેરા શરૂ કરો",
+    capturePhoto: "ફોટો કૅપ્ચર કરો",
+    stopCamera: "કેમેરા બંધ કરો",
+    getGps: "GPS મેળવો",
+    lat: "અક્ષાંશ",
+    long: "દ્રઘિમાંશ",
+    analyseTitle: "નુકસાન વિશ્લેષણ",
+    analyseImage: "ઈમેજ વિશ્લેષણ કરો",
+    damageSeverity: "નુકસાનની ગંભીરતા:",
+    submitSevere: "ભારી રિપોર્ટ સબમિટ કરો",
+    submitMedium: "મધ્યમ રિપોર્ટ સબમિટ કરો",
+    submitLow: "ઓછા રિપોર્ટ સબમિટ કરો",
+    reportSuccess: "રિપોર્ટ સફળતાપૂર્વક સબમિટ થયો.",
+    appreciationMessage: "રસ્તાની સુરક્ષા અને ગુણવત્તા જાળવવામાં તમારા મૂલ્યવાન યોગદાન માટે આભાર.",
+    notSevere: "દાખલ કરેલી રિપોર્ટ ગંભીર નથી.",
+    settingsLabel: "સેટિંગ્સ",
+    profileNameLabel: "પ્રોફાઇલ નામ",
+    languageSelectLabel: "ભાષા (પસંદ કરો)",
+    themeLabel: "થિમ",
+    themeHelp: "ડાર્ક અને બ્રાઇટ થીમ વચ્ચે ટોગલ કરો",
+    save: "સેવ કરો",
+    close: "બંધ કરો"
+  },
+  "Punjabi": {
+    title: "TarFixer — ਯੂਜ਼ਰ ਡੈਸ਼ਬੋਰਡ",
+    subtitle: "ਸੜਕ ਨੁਕਸਾਨ ਕੈਪਚਰ ਕਰੋ, ਤੇਜ਼ੀ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ ਅਤੇ ਰਿਪੋਰਟ ਸਬਮਿਟ ਕਰੋ।",
+    signedAs: "ਸਾਈਨ ਇਨ:",
+    yourReports: "ਤੁਹਾਡੀਆਂ ਰਿਪੋਰਟਾਂ",
+    settings: "ਸੈਟਿੰਗ",
+    signOut: "ਸਾਈਨ ਆਉਟ",
+    captureTitle: "ਸੜਕ ਚਿੱਤਰ ਕੈਪਚਰ ਕਰੋ",
+    startCamera: "ਕੈਮਰਾ ਸ਼ੁਰੂ ਕਰੋ",
+    capturePhoto: "ਫੋਟੋ ਕੈਪਚਰ ਕਰੋ",
+    stopCamera: "ਕੈਮਰਾ ਬੰਦ ਕਰੋ",
+    getGps: "GPS ਪ੍ਰਾਪਤ ਕਰੋ",
+    lat: "ਅક્ષਾਂਸ਼",
+    long: "ਦੇਸ਼ਾਂਤ",
+    analyseTitle: "ਨੁਕਸਾਨ ਵਿਸ਼ਲੇਸ਼ਣ",
+    analyseImage: "ਚਿੱਤਰ ਦਾ ਵਿਸ਼ਲੇਸ਼ਣ ਕਰੋ",
+    damageSeverity: "ਨੁਕਸਾਨ ਦੀ ਗੰਭੀਰਤਾ:",
+    submitSevere: "ਗੰਭੀਰ ਰਿਪੋਰਟ ਸਬਮਿਟ ਕਰੋ",
+    submitMedium: "ਮੱਧਮ ਰਿਪੋਰਟ ਸਬਮਿਟ ਕਰੋ",
+    submitLow: "ਘੱਟ ਰਿਪੋਰਟ ਸਬਮਿਟ ਕਰੋ",
+    reportSuccess: "ਰਿਪੋਰਟ ਸਫਲਤਾਪੂਰਵਕ ਸਬਮਿਟ ਹੋ ਗਈ।",
+    appreciationMessage: "ਸੜਕ ਸੁਰੱਖਿਆ ਅਤੇ ਗੁਣਵੱਤਾ ਬਣਾਈ ਰੱਖਣ ਵਿਚ ਤੁਹਾਡੇ ਕੀਮਤੀ ਯੋਗਦਾਨ ਲਈ ਧੰਨਵਾਦ।",
+    notSevere: "ਦਖਲ ਕੀਤੀ ਰਿਪੋਰਟ ਗੰਭੀਰ ਨਹੀਂ ਹੈ।",
+    settingsLabel: "ਸੈਟਿੰਗ",
+    profileNameLabel: "ਪ੍ਰੋਫਾਈਲ ਨਾਮ",
+    languageSelectLabel: "ਭਾਸ਼ਾ (ਚੁਣੋ)",
+    themeLabel: "ਥੀਮ",
+    themeHelp: "ਡਾਰਕ ਅਤੇ ਬਰਾਈਟ ਥੀਮ ਵਿਚ ਬਦਲੋ",
+    save: "ਸੇਵ",
+    close: "ਬੰਦ"
+  }
+};
+
+/* ---------- Helper: load/save profile & reports ---------- */
+function loadProfile(){ try{ return JSON.parse(localStorage.getItem(STORAGE_PROFILE)) || defaultProfile; }catch(e){return defaultProfile;} }
+function saveProfile(p){ localStorage.setItem(STORAGE_PROFILE, JSON.stringify(p)); }
+function loadReports(){ try{ return JSON.parse(localStorage.getItem(STORAGE_REPORTS)) || []; }catch(e){return [];} }
+function saveReports(r){ localStorage.setItem(STORAGE_REPORTS, JSON.stringify(r)); }
+
+/* ---------- API Client ---------- */
+const API = new TarFixerAPI();
+console.log('✅ API Client initialized');
+
+/* ---------- App state ---------- */
+let profile = loadProfile();
+let reports = loadReports();
+
+/* ---------- DOM refs (will be initialized after DOM loads) ---------- */
+let avatarBtn, profileNameEl, dropdown, dropdownName, settingsBtn, logoutBtn;
+let startCameraBtn, captureBtn, stopCameraBtn, cameraView, cameraCanvas, capturedImg;
+let latBox, lngBox, analyseCard, analyseBtn, severityText, submitButtons, permanentApp, errorBox;
+let settingsModal, reportsModal, inputName, langSelect, themeToggle, saveSettings, closeSettings;
+let reportsSummaryCard, countsWrap, reportsList, modalCounts, modalReportsList;
+
+let stream = null;
+let capturedImageData = null;
+
+/* ---------- UI init ---------- */
+function initials(name){
+  if(!name) return 'U';
+  const parts = name.trim().split(/\s+/);
+  let res = parts[0].charAt(0) || '';
+  if(parts.length>1) res += parts[1].charAt(0);
+  return res.toUpperCase();
+}
+
+function applyTranslations(lang){
+  const pack = translations[lang] || translations['English'];
+  // find all elements with data-key and set their textContent
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    const key = el.getAttribute('data-key');
+    if(pack[key]) el.textContent = pack[key];
+  });
+  // update dynamic single labels that don't use data-key
+  document.title = (pack.title || 'TarFixer') ;
+}
+
+function initUI(){
+  profile = loadProfile();
+  reports = loadReports();
+
+  profileNameEl.textContent = profile.name;
+  dropdownName.textContent = profile.name;
+  avatarBtn.textContent = initials(profile.name);
+
+  // fill languages
+  langSelect.innerHTML = Object.keys(translations).map(l => `<option value="${l}" ${l===profile.language ? 'selected':''}>${l}</option>`).join('');
+  inputName.value = profile.name;
+  applyTheme(profile.theme);
+  applyTranslations(profile.language || 'English');
+  renderReportsSummary();
+  permanentApp.style.display = 'none'; // only show after submissions
+}
+
+/* ---------- Helper functions ---------- */
+function toggleDropdown(){ dropdown.classList.toggle('show'); }
+
+function openSettings(){
+  inputName.value = profile.name;
+  langSelect.value = profile.language || 'English';
+  themeToggle.textContent = profile.theme === 'dark' ? '🌙 Dark' : '☀️ Bright';
+  settingsModal.classList.add('show'); settingsModal.style.display = 'flex';
+}
+
+function applyTheme(t){
+  if(t==='light'){ 
+    document.documentElement.classList.add('light'); 
+    document.body.classList.add('light'); 
+  } else { 
+    document.documentElement.classList.remove('light'); 
+    document.body.classList.remove('light'); 
+  }
+}
+
+/* ---------- Upload Image ---------- */
+const uploadImageInput = document.getElementById('uploadImageInput');
+const uploadedFileName = document.getElementById('uploadedFileName');
+
+uploadImageInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.type.match('image/jpeg')) {
+    errorBox.textContent = '❌ Please upload a JPEG image with GPS data.';
+    errorBox.style.color = '#ff7070';
+    uploadImageInput.value = '';
+    return;
+  }
+  
+  uploadedFileName.textContent = '⏳ Processing ' + file.name + '...';
+  errorBox.textContent = '';
+  
+  try {
+    // First, extract GPS data (REQUIRED)
+    try {
+      const gpsData = await extractGPSFromImage(file);
+      
+      // GPS extraction successful - now display the image
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageDataUrl = event.target.result;
+        capturedImg.src = imageDataUrl;
+        capturedImg.style.display = 'block';
+        cameraView.style.display = 'none';
+        capturedImageData = imageDataUrl;
+        
+        uploadedFileName.textContent = '✅ ' + file.name;
+        if(analyseCard) analyseCard.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+      
+    } catch (err) {
+      // GPS extraction FAILED - reject the image
+      console.error('GPS extraction failed:', err);
+      errorBox.textContent = '❌ No GPS data found in this image. Please take a photo with GPS/location enabled on your device.';
+      errorBox.style.color = '#ff7070';
+      uploadedFileName.textContent = '';
+      uploadImageInput.value = ''; // Clear the file input
+      capturedImg.style.display = 'none';
+      capturedImageData = null;
+      if(analyseCard) analyseCard.style.display = 'none';
+      return;
+    }
+    
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    errorBox.textContent = 'Error loading image: ' + error.message;
+  }
+});
+
+
+/* ---------- Extract GPS from EXIF ---------- */
+async function extractGPSFromImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const exif = getEXIFData(e.target.result);
+        
+        if (exif && exif.GPSLatitude && exif.GPSLongitude) {
+          const lat = convertDMSToDD(
+            exif.GPSLatitude[0], 
+            exif.GPSLatitude[1], 
+            exif.GPSLatitude[2], 
+            exif.GPSLatitudeRef
+          );
+          const lng = convertDMSToDD(
+            exif.GPSLongitude[0], 
+            exif.GPSLongitude[1], 
+            exif.GPSLongitude[2], 
+            exif.GPSLongitudeRef
+          );
+          
+          latBox.textContent = lat.toFixed(6);
+          lngBox.textContent = lng.toFixed(6);
+          errorBox.textContent = '✅ GPS location extracted successfully! You can now analyze the damage.';
+          errorBox.style.color = '#00e6a8';
+          resolve({ lat, lng });
+        } else {
+          reject(new Error('No GPS data in EXIF'));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Simple EXIF parser for GPS data
+function getEXIFData(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+  
+  // Check for JPEG marker
+  if (view.getUint16(0) !== 0xFFD8) return null;
+  
+  let offset = 2;
+  while (offset < view.byteLength) {
+    if (view.getUint16(offset) === 0xFFE1) { // APP1 marker (EXIF)
+      const exifOffset = offset + 10;
+      const littleEndian = view.getUint16(exifOffset) === 0x4949;
+      
+      // Parse IFD (simplified - just looking for GPS tags)
+      const gpsIFDOffset = getGPSIFDOffset(view, exifOffset, littleEndian);
+      if (gpsIFDOffset) {
+        return parseGPSIFD(view, exifOffset + gpsIFDOffset, littleEndian);
+      }
+    }
+    offset += 2 + view.getUint16(offset + 2);
+  }
+  return null;
+}
+
+function getGPSIFDOffset(view, exifOffset, littleEndian) {
+  try {
+    const ifdOffset = view.getUint32(exifOffset + 4, littleEndian);
+    const numEntries = view.getUint16(exifOffset + ifdOffset, littleEndian);
+    
+    for (let i = 0; i < numEntries; i++) {
+      const entryOffset = exifOffset + ifdOffset + 2 + (i * 12);
+      const tag = view.getUint16(entryOffset, littleEndian);
+      if (tag === 0x8825) { // GPS IFD tag
+        return view.getUint32(entryOffset + 8, littleEndian);
+      }
+    }
+  } catch (e) {
+    console.error('Error reading GPS IFD offset:', e);
+  }
+  return null;
+}
+
+function parseGPSIFD(view, ifdOffset, littleEndian) {
+  const gpsData = {};
+  try {
+    const numEntries = view.getUint16(ifdOffset, littleEndian);
+    
+    for (let i = 0; i < numEntries; i++) {
+      const entryOffset = ifdOffset + 2 + (i * 12);
+      const tag = view.getUint16(entryOffset, littleEndian);
+      const type = view.getUint16(entryOffset + 2, littleEndian);
+      const valueOffset = view.getUint32(entryOffset + 8, littleEndian);
+      
+      if (tag === 0x0001) gpsData.GPSLatitudeRef = String.fromCharCode(view.getUint8(entryOffset + 8));
+      if (tag === 0x0002) gpsData.GPSLatitude = readRationals(view, ifdOffset - 6 + valueOffset, littleEndian, 3);
+      if (tag === 0x0003) gpsData.GPSLongitudeRef = String.fromCharCode(view.getUint8(entryOffset + 8));
+      if (tag === 0x0004) gpsData.GPSLongitude = readRationals(view, ifdOffset - 6 + valueOffset, littleEndian, 3);
+    }
+  } catch (e) {
+    console.error('Error parsing GPS IFD:', e);
+  }
+  return gpsData;
+}
+
+function readRationals(view, offset, littleEndian, count) {
+  const rationals = [];
+  for (let i = 0; i < count; i++) {
+    const num = view.getUint32(offset + (i * 8), littleEndian);
+    const den = view.getUint32(offset + (i * 8) + 4, littleEndian);
+    rationals.push(num / den);
+  }
+  return rationals;
+}
+
+function convertDMSToDD(degrees, minutes, seconds, direction) {
+  let dd = degrees + (minutes / 60) + (seconds / 3600);
+  if (direction === 'S' || direction === 'W') dd *= -1;
+  return dd;
+}
+
+/* ---------- Analyse ---------- */
+async function handleAnalyseClick(){
+  if(!capturedImageData){ alert('Please capture or upload an image first!'); return; }
+  
+  // Verify GPS coordinates are present
+  const lat = document.getElementById('lat').textContent;
+  const lng = document.getElementById('lng').textContent;
+  if (lat === '--' || lng === '--') {
+    alert('❌ GPS location is required. Please allow location access or upload an image with GPS data.');
+    return;
+  }
+  
+  // Show loading state
+  const originalText = analyseBtn.textContent;
+  analyseBtn.textContent = 'Analyzing with AI...';
+  analyseBtn.disabled = true;
+  severityText.textContent = 'Analyzing...';
+  submitButtons.innerHTML = '';
+  permanentApp.style.display = 'none';
+
+  const pack = translations[profile.language] || translations['English'];
+
+  try {
+    // Convert base64 image to Blob
+    console.log('Step 1: Converting image to blob...');
+    const base64Response = await fetch(capturedImageData);
+    const blob = await base64Response.blob();
+    const file = new File([blob], "road_damage.jpg", { type: "image/jpeg" });
+    
+    console.log('Step 2: File created:', file.name, file.type, file.size, 'bytes');
+    console.log('Step 3: Calling YOLO detection API...');
+    console.log('API endpoint:', API.baseURL + '/detect');
+    
+    // Call backend YOLO detection API
+    const detectionResult = await API.detectDamage(file);
+    
+    console.log('Step 4: Detection result received:', detectionResult);
+    
+    // Get severity from YOLO result
+    const severity = Math.round(detectionResult.damage_percentage || 0);
+    
+    // Update severity display
+    severityText.textContent = `${severity}%`;
+    
+    // Store detection details for report submission
+    window.lastDetectionResult = {
+      severity: severity,
+      detectionCount: detectionResult.detection_count || 0,
+      severityLabel: detectionResult.severity_label || 'Unknown',
+      annotatedImage: detectionResult.annotated_image || capturedImageData
+    };
+    
+    // Show appropriate submit button based on severity
+    if(severity < 20){
+      submitButtons.innerHTML = `<p style="color:var(--accent); font-size:15px; margin-top:10px;">${pack.notSevere}</p>`;
+    } else if(severity >= 60){
+      submitButtons.innerHTML = `<button class="btn btn-red" onclick="submitReportFromUI(${severity})">${pack.submitSevere}</button>`;
+    } else if(severity >=30){
+      submitButtons.innerHTML = `<button class="btn btn-yellow" onclick="submitReportFromUI(${severity})">${pack.submitMedium}</button>`;
+    } else {
+      submitButtons.innerHTML = `<button class="btn btn-green" onclick="submitReportFromUI(${severity})">${pack.submitLow}</button>`;
+    }
+    
+    // Show detection info
+    console.log(`YOLO Detection: ${severity}% damage, ${detectionResult.detection_count} detections, Severity: ${detectionResult.severity_label}`);
+    
+  } catch (error) {
+    console.error('❌ YOLO detection error:', error);
+    console.error('Error stack:', error.stack);
+    alert('❌ Failed to analyze image.\n\nError: ' + error.message + '\n\nCheck browser console (F12) for details.');
+    severityText.textContent = 'Error';
+    errorBox.textContent = '❌ Analysis failed: ' + error.message;
+    errorBox.style.color = '#ff7070';
+  } finally {
+    // Reset button state
+    analyseBtn.textContent = originalText;
+    analyseBtn.disabled = false;
+  }
+}
+
+/* ---------- Reports storage & rendering ---------- */
+function renderReportsSummary(){
+  reports = loadReports();
+  if(reports.length === 0){ reportsSummaryCard.style.display = 'none'; }
+  else { reportsSummaryCard.style.display = 'block'; }
+
+  const counts = { Submitted:0, Ongoing:0, Resolved:0, Rejected:0 };
+  reports.forEach(r=>{
+    counts[r.status] = (counts[r.status]||0) + 1;
+  });
+
+  countsWrap.innerHTML = `
+    <div class="count-pill">${(translations[profile.language]||translations['English']).total || 'Total'}: ${reports.length}</div>
+    <div class="count-pill">Submitted: ${counts.Submitted}</div>
+    <div class="count-pill">Ongoing: ${counts.Ongoing}</div>
+    <div class="count-pill">Resolved: ${counts.Resolved}</div>
+    <div class="count-pill">Rejected: ${counts.Rejected}</div>
+  `;
+
+  reportsList.innerHTML = '';
+  if(reports.length){
+    reports.slice().reverse().forEach(r=>{
+      const item = document.createElement('div');
+      item.className = 'report-item';
+      item.innerHTML = `
+        <div>
+          <div style="font-weight:700">#${r.id} — ${r.severity}%</div>
+          <div class="report-meta">${r.latitude||'--'}, ${r.longitude||'--'} • ${new Date(r.timestamp).toLocaleString()}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="status-badge ${statusClass(r.status)}">${r.status}</div>
+        </div>
+      `;
+      reportsList.appendChild(item);
+    });
+  }
+}
+function statusClass(s){
+  if(s==='Ongoing') return 'status-ongoing';
+  if(s==='Resolved') return 'status-resolved';
+  if(s==='Rejected') return 'status-rejected';
+  return 'status-submitted';
+}
+
+/* ---------- Submit flow ---------- */
+window.submitReportFromUI = async function(severity){
+  const pack = translations[profile.language] || translations['English'];
+  
+  try {
+    // Get detection data from YOLO analysis
+    const detectionData = window.lastDetectionResult || {
+      severity: severity,
+      detectionCount: 0,
+      severityLabel: 'Unknown',
+      annotatedImage: capturedImageData
+    };
+    
+    // Prepare report data for backend
+    const reportData = {
+      location: 'User Location', // You can add a location input field
+      latitude: parseFloat(latBox.textContent) || 0,
+      longitude: parseFloat(lngBox.textContent) || 0,
+      damage_percentage: detectionData.severity,
+      severity: detectionData.severityLabel,
+      detection_count: detectionData.detectionCount,
+      description: `Road damage detected: ${detectionData.severity}% damage`,
+      annotated_image: detectionData.annotatedImage,
+      original_image: capturedImageData
+    };
+    
+    console.log('Submitting report to backend...', reportData);
+    
+    // Submit to backend API
+    const result = await API.createReport(reportData);
+    
+    console.log('Report submitted successfully:', result);
+    
+    // Also save locally for UI display
+    const r = {
+      id: result.report_id || Math.random().toString(36).slice(2,9).toUpperCase(),
+      severity: detectionData.severity,
+      timestamp: (new Date()).toISOString(),
+      latitude: reportData.latitude,
+      longitude: reportData.longitude,
+      status: detectionData.severity >= 60 ? 'Ongoing' : 'Submitted',
+      note: ''
+    };
+    reports.push(r);
+    saveReports(reports);
+    renderReportsSummary();
+
+    // Show success message
+    const old = document.getElementById('successMsg'); if(old) old.remove();
+    const box = document.createElement('div');
+    box.id='successMsg'; box.className='success-box';
+    box.innerHTML = `<div style="font-weight:800; margin-right:6px;">✔️</div><div>${pack.reportSuccess}</div>`;
+    submitButtons.appendChild(box);
+
+    // permanent appreciation message
+    permanentApp.style.display = 'block';
+    // auto remove success after 2s
+    setTimeout(()=>{ const s = document.getElementById('successMsg'); if(s) s.remove(); }, 2000);
+    
+  } catch (error) {
+    console.error('Failed to submit report:', error);
+    alert('Failed to submit report: ' + error.message);
+  }
+};
+
+/* ---------- Your Reports modal (kept for internal logic) ---------- */
+function openReportsModal(){
+  const counts = { Submitted:0, Ongoing:0, Resolved:0, Rejected:0 };
+  reports.forEach(r=> counts[r.status] = (counts[r.status]||0) + 1);
+  modalCounts.innerHTML = `
+    <div class="count-pill">Total: ${reports.length}</div>
+    <div class="count-pill">Submitted: ${counts.Submitted || 0}</div>
+    <div class="count-pill">Ongoing: ${counts.Ongoing || 0}</div>
+    <div class="count-pill">Resolved: ${counts.Resolved || 0}</div>
+    <div class="count-pill">Rejected: ${counts.Rejected || 0}</div>
+  `;
+  modalReportsList.innerHTML = '';
+  if(reports.length === 0){
+    modalReportsList.innerHTML = `<div class="small">No reports yet.</div>`;
+  } else {
+    reports.slice().reverse().forEach(r=>{
+      const div = document.createElement('div');
+      div.className = 'report-item';
+      div.style.flexDirection = 'column'; div.style.alignItems='flex-start';
+      div.innerHTML = `
+        <div style="width:100%; display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:800">${r.id} — ${r.severity}%</div>
+            <div class="report-meta">${r.latitude||'--'}, ${r.longitude||'--'} • ${new Date(r.timestamp).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="status-badge ${statusClass(r.status)}">${r.status}</div>
+          </div>
+        </div>
+      `;
+      modalReportsList.appendChild(div);
+    });
+  }
+  reportsModal.classList.add('show'); reportsModal.style.display='flex';
+}
+
+window.markResolved = function(id){ reports = reports.map(r=> r.id===id ? {...r, status:'Resolved'}: r); saveReports(reports); openReportsModal(); renderReportsSummary(); };
+window.markRejected = function(id){ reports = reports.map(r=> r.id===id ? {...r, status:'Rejected'}: r); saveReports(reports); openReportsModal(); renderReportsSummary(); };
+
+/* ---------- Secure Authentication ---------- */
+function getSession() {
+  try {
+    const sessionStr = localStorage.getItem('tarfixer_session');
+    if (!sessionStr) return null;
+    const signedSession = JSON.parse(sessionStr);
+    // Extract actual session data from signed wrapper
+    return signedSession.data || signedSession;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function protectDashboard() {
+  // Check if authenticated
+  if (!API.isAuthenticated()) {
+    console.warn('Not authenticated, redirecting to login');
+    window.location.replace('../Login/Choose_login.html?error=not_authenticated');
+    return false;
+  }
+
+  // Check user type from stored data
+  const user = API.getUser();
+  if (!user || user.userType !== 'user') {
+    console.warn('Access denied: not a user');
+    await API.logout();
+    window.location.replace('../Login/Choose_login.html?error=access_denied');
+    return false;
+  }
+  
+  console.log('User authenticated, loading dashboard...');
+  return true;
+}
+
+/* ---------- Authentication & User Info ---------- */
+function loadAuthUserInfo() {
+  const user = API.getUser();
+  if (user) {
+    // Update profile
+    profile.name = user.name || 'User';
+    saveProfile(profile);
+    
+    // Update UI elements
+    document.getElementById('profileName').textContent = user.name || 'User';
+    document.getElementById('dropdownName').textContent = user.name || 'User';
+    document.getElementById('dropdownEmail').textContent = user.email || '';
+    const initials = user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'U';
+    document.getElementById('avatarBtn').textContent = initials;
+  }
+}
+
+/* ---------- init ---------- */
+window.addEventListener('DOMContentLoaded', async () => {
+  console.log('🔄 DOM Content Loaded - initializing...');
+  
+  // Initialize all DOM elements first
+  avatarBtn = document.getElementById('avatarBtn');
+  profileNameEl = document.getElementById('profileName');
+  dropdown = document.getElementById('profileDropdown');
+  dropdownName = document.getElementById('dropdownName');
+  settingsBtn = document.getElementById('settingsBtn');
+  logoutBtn = document.getElementById('logoutBtn');
+  
+  startCameraBtn = document.getElementById('startCameraBtn');
+  captureBtn = document.getElementById('captureBtn');
+  stopCameraBtn = document.getElementById('stopCameraBtn');
+  cameraView = document.getElementById('cameraView');
+  cameraCanvas = document.getElementById('cameraCanvas');
+  capturedImg = document.getElementById('capturedImg');
+  
+  latBox = document.getElementById('lat');
+  lngBox = document.getElementById('lng');
+  analyseCard = document.getElementById('analyseCard');
+  analyseBtn = document.getElementById('analyseBtn');
+  severityText = document.getElementById('severityText');
+  submitButtons = document.getElementById('submitButtons');
+  permanentApp = document.getElementById('permanentApp');
+  errorBox = document.getElementById('error');
+  
+  settingsModal = document.getElementById('settingsModal');
+  reportsModal = document.getElementById('reportsModal');
+  inputName = document.getElementById('inputName');
+  langSelect = document.getElementById('langSelect');
+  themeToggle = document.getElementById('themeToggle');
+  saveSettings = document.getElementById('saveSettings');
+  closeSettings = document.getElementById('closeSettings');
+  
+  reportsSummaryCard = document.getElementById('reportsSummaryCard');
+  countsWrap = document.getElementById('countsWrap');
+  reportsList = document.getElementById('reportsList');
+  modalCounts = document.getElementById('modalCounts');
+  modalReportsList = document.getElementById('modalReportsList');
+  
+  console.log('✅ All DOM elements initialized');
+  
+  // Clear redirect flag since we successfully loaded the dashboard
+  sessionStorage.removeItem('just_redirected');
+  
+  // Protect dashboard - only users can access
+  const isProtected = await protectDashboard();
+  if (!isProtected) {
+    return;
+  }
+  
+  // Load authenticated user info
+  loadAuthUserInfo();
+  
+  // Set up all event listeners
+  setupEventListeners();
+  
+  // Initialize UI
+  initUI();
+  renderReportsSummary();
+  
+  console.log('✅ Dashboard fully initialized and ready');
+});
+
+/* ---------- Setup all event listeners ---------- */
+function setupEventListeners() {
+  console.log('Setting up event listeners...');
+  
+  /* Profile dropdown */
+  avatarBtn.addEventListener('click', ()=> toggleDropdown());
+  profileNameEl.addEventListener('click', ()=> toggleDropdown());
+  document.addEventListener('click', (e)=> {
+    if(!document.getElementById('profileWrap').contains(e.target)) dropdown.classList.remove('show');
+  });
+  
+  /* Settings */
+  settingsBtn.addEventListener('click', ()=> {
+    dropdown.classList.remove('show');
+    openSettings();
+  });
+  closeSettings.addEventListener('click', ()=> { 
+    settingsModal.classList.remove('show'); 
+    settingsModal.style.display='none'; 
+  });
+  saveSettings.addEventListener('click', ()=>{
+    profile.name = inputName.value.trim() || 'User';
+    profile.language = langSelect.value || 'English';
+    saveProfile(profile);
+    initUI();
+    settingsModal.classList.remove('show'); 
+    settingsModal.style.display='none';
+  });
+  
+  /* Theme toggle */
+  themeToggle.addEventListener('click', ()=>{
+    profile.theme = profile.theme === 'light' ? 'dark' : 'light';
+    saveProfile(profile);
+    applyTheme(profile.theme);
+    themeToggle.textContent = profile.theme === 'dark' ? '🌙 Dark' : '☀️ Bright';
+  });
+  
+  /* Language change */
+  langSelect.addEventListener('change', (e)=>{
+    const L = e.target.value;
+    profile.language = L;
+    saveProfile(profile);
+    applyTranslations(L);
+  });
+  
+  /* Camera controls */
+  startCameraBtn.addEventListener('click', async ()=>{
+    errorBox.textContent = '';
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ 
+        video:{ facingMode:{ ideal:'environment' } }, 
+        audio:false 
+      });
+      cameraView.srcObject = stream;
+      captureBtn.disabled = false;
+      stopCameraBtn.disabled = false;
+      startCameraBtn.disabled = true;
+    }catch(err){
+      console.error(err);
+      errorBox.textContent = 'Camera permission denied or blocked.';
+    }
+  });
+  
+  stopCameraBtn.addEventListener('click', ()=>{
+    if(stream){ 
+      stream.getTracks().forEach(t=>t.stop()); 
+      stream=null; 
+      cameraView.srcObject=null; 
+    }
+    captureBtn.disabled = true; 
+    stopCameraBtn.disabled = true; 
+    startCameraBtn.disabled = false;
+  });
+  
+  captureBtn.addEventListener('click', ()=>{
+    if(!stream) return;
+    cameraCanvas.width = cameraView.videoWidth || 640;
+    cameraCanvas.height = cameraView.videoHeight || 480;
+    cameraCanvas.getContext('2d').drawImage(cameraView, 0,0, cameraCanvas.width, cameraCanvas.height);
+    capturedImageData = cameraCanvas.toDataURL('image/jpeg', 0.9);
+    capturedImg.src = capturedImageData; 
+    capturedImg.style.display='block';
+    
+    // Automatically get GPS location
+    errorBox.textContent = '📍 Getting your GPS location...';
+    errorBox.style.color = '#00e6a8';
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          latBox.textContent = pos.coords.latitude.toFixed(6);
+          lngBox.textContent = pos.coords.longitude.toFixed(6);
+          errorBox.textContent = '✅ GPS location captured successfully! You can now analyze the damage.';
+          errorBox.style.color = '#00e6a8';
+          if(analyseCard) analyseCard.style.display = 'block';
+        },
+        (err) => {
+          errorBox.textContent = '❌ GPS permission denied. Please enable location access in your browser settings.';
+          errorBox.style.color = '#ff7070';
+          console.error('GPS error:', err);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      errorBox.textContent = '❌ GPS not supported on this device.';
+      errorBox.style.color = '#ff7070';
+    }
+  });
+  
+  analyseBtn.addEventListener('click', handleAnalyseClick);
+
+  /* Logout */
+  logoutBtn.addEventListener('click', async ()=>{
+    if(confirm('Sign out?')){
+      await API.logout();
+      window.location.href = '../Login/Choose_login.html';
+    }
+  });
+  
+  /* Close modals */
+  document.getElementById('closeReports').addEventListener('click', ()=> { 
+    reportsModal.classList.remove('show'); 
+    reportsModal.style.display='none'; 
+  });
+  
+  console.log('✅ All event listeners set up');
+}
+
+/* ---------- accessibility ---------- */
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){
+    settingsModal.classList.remove('show'); settingsModal.style.display='none';
+    reportsModal.classList.remove('show'); reportsModal.style.display='none';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage & Test</title>
+</head>
+<body style="padding: 50px; font-family: Arial;">
+    <h1>Clear Browser Storage</h1>
+    <p>Click the button below to clear all stored data, then try logging in.</p>
+    
+    <button onclick="clearAll()" style="padding: 15px 30px; font-size: 16px; background: #dc3545; color: white; border: none; cursor: pointer;">
+        Clear All Storage
+    </button>
+    
+    <div id="result" style="margin-top: 20px; padding: 15px; background: #f0f0f0;"></div>
+    
+    <div style="margin-top: 30px;">
+        <a href="Choose_login.html" style="padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+            Go to Login Page
+        </a>
+    </div>
+    
+    <script>
+        function clearAll() {
+            // Clear localStorage
+            localStorage.clear();
+            
+            // Clear sessionStorage
+            sessionStorage.clear();
+            
+            // Clear all cookies
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            });
+            
+            document.getElementById('result').innerHTML = `
+                <h3 style="color: green;">✅ Storage Cleared!</h3>
+                <p>Cleared items:</p>
+                <ul>
+                    <li>localStorage</li>
+                    <li>sessionStorage</li>
+                    <li>Cookies</li>
+                </ul>
+                <p><strong>Now click "Go to Login Page" below and try logging in.</strong></p>
+            `;
+        }
+    </script>
+</body>
+</html>

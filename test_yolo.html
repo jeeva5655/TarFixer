@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test YOLO API</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a1a; color: #fff; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+        #result { margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 8px; }
+        img { max-width: 400px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>YOLO API Test</h1>
+    
+    <div>
+        <input type="file" id="imageInput" accept="image/*" />
+        <button onclick="testAPI()">Test YOLO Detection</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script src="api-client.js"></script>
+    <script>
+        const API = new TarFixerAPI('http://localhost:5000/api');
+        const resultDiv = document.getElementById('result');
+        
+        async function testAPI() {
+            const fileInput = document.getElementById('imageInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                resultDiv.innerHTML = '<p style="color: red;">Please select an image first!</p>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p>🔄 Testing YOLO API...</p>';
+            
+            try {
+                // Test 1: Check if backend is reachable
+                resultDiv.innerHTML += '<p>✅ Step 1: Checking backend health...</p>';
+                const healthResponse = await fetch('http://localhost:5000/api/health');
+                const healthData = await healthResponse.json();
+                resultDiv.innerHTML += `<p>✅ Backend health: ${JSON.stringify(healthData)}</p>`;
+                
+                // Test 2: Call YOLO detection
+                resultDiv.innerHTML += '<p>🔄 Step 2: Calling YOLO detection...</p>';
+                console.log('Calling detectDamage with file:', file.name, file.type, file.size);
+                
+                const result = await API.detectDamage(file);
+                
+                resultDiv.innerHTML += '<p style="color: lime;">✅ YOLO Detection Successful!</p>';
+                resultDiv.innerHTML += `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                
+                if (result.annotated_image) {
+                    resultDiv.innerHTML += `<p>Annotated Image:</p><img src="${result.annotated_image}" />`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
