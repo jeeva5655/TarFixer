@@ -24,13 +24,40 @@ except Exception:  # pragma: no cover - allow server to run without YOLO weights
     YOLO = None
 from PIL import Image
 import sqlite3
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+try:
+    from email_config import *
+except ImportError:
+    # Default settings if config file doesn't exist
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = ''
+    EMAIL_HOST_PASSWORD = ''
+    EMAIL_FROM_ADDRESS = 'TarFixer <noreply@tarfixer.com>'
 
 # ---------------------------------------------------------
 # Flask Initialization
 # ---------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
-CORS(app, supports_credentials=True, origins=["*"])
+CORS(app, 
+     supports_credentials=True, 
+     origins=["*"],
+     allow_headers=["Content-Type", "Authorization", "Accept"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type", "Authorization"])
+
+# Add CORS headers to all responses
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # ---------------------------------------------------------
 # Database Setup
@@ -58,6 +85,11 @@ def ensure_whitelist_columns(conn):
     add_column_if_missing(conn, 'whitelist', 'phone', 'TEXT')
     add_column_if_missing(conn, 'whitelist', 'status', "TEXT DEFAULT 'pending'")
     add_column_if_missing(conn, 'whitelist', 'requested_at', 'TEXT')
+
+def ensure_user_columns(conn):
+    """Add Google OAuth columns to users table"""
+    add_column_if_missing(conn, 'users', 'google_id', 'TEXT')
+    add_column_if_missing(conn, 'users', 'approved', "INTEGER DEFAULT 1")
 
 def init_db():
     """Initialize database tables"""
@@ -92,6 +124,7 @@ def init_db():
     ''')
 
     ensure_whitelist_columns(conn)
+    ensure_user_columns(conn)
     
     # Sessions table
     c.execute('''
@@ -196,6 +229,180 @@ def log_audit(event_type, email, details=None):
                datetime.now().isoformat(), request.remote_addr))
     conn.commit()
     conn.close()
+
+# ---------------------------------------------------------
+# Email Helpers
+# ---------------------------------------------------------
+
+def send_email(to_email, subject, html_content, text_content=None):
+    """Send email using SMTP"""
+    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+        print(f"⚠️ Email not configured. Would send to {to_email}: {subject}")
+        return False
+    
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['From'] = EMAIL_FROM_ADDRESS
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        # Add text and HTML parts
+        if text_content:
+            part1 = MIMEText(text_content, 'plain')
+            msg.attach(part1)
+        
+        part2 = MIMEText(html_content, 'html')
+        msg.attach(part2)
+        
+        # Connect and send
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        if EMAIL_USE_TLS:
+            server.starttls()
+        server.login(EMAIL_HOST_USER, EMAIL_HOST_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"✅ Email sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"❌ Email send failed: {e}")
+        return False
+
+def generate_verification_code():
+    """Generate 6-digit verification code"""
+    return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+
+def send_verification_code_email(to_email, code, user_name='User'):
+    """Send verification code email"""
+    subject = 'Your TarFixer Verification Code'
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .code-box {{ background: white; border: 2px dashed #667eea; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }}
+            .code {{ font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #667eea; }}
+            .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #666; }}
+            .button {{ display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔒 Password Reset Verification</h1>
+            </div>
+            <div class="content">
+                <p>Hello {user_name},</p>
+                <p>You requested to reset your password for TarFixer. Use the verification code below to proceed:</p>
+                
+                <div class="code-box">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 10px;">Your Verification Code</div>
+                    <div class="code">{code}</div>
+                    <div style="font-size: 12px; color: #999; margin-top: 10px;">Valid for 10 minutes</div>
+                </div>
+                
+                <p><strong>Important:</strong></p>
+                <ul>
+                    <li>This code expires in <strong>10 minutes</strong></li>
+                    <li>Don't share this code with anyone</li>
+                    <li>If you didn't request this, please ignore this email</li>
+                </ul>
+                
+                <div class="footer">
+                    <p>© 2025 TarFixer - Road Damage Detection System</p>
+                    <p>This is an automated email, please do not reply.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Password Reset Verification - TarFixer
+    
+    Hello {user_name},
+    
+    Your verification code is: {code}
+    
+    This code expires in 10 minutes.
+    
+    If you didn't request this, please ignore this email.
+    
+    © 2025 TarFixer
+    """
+    
+    return send_email(to_email, subject, html_content, text_content)
+
+def send_password_reset_link_email(to_email, reset_link, user_name='User'):
+    """Send password reset link email"""
+    subject = 'Reset Your TarFixer Password'
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; padding: 15px 40px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }}
+            .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔑 Reset Your Password</h1>
+            </div>
+            <div class="content">
+                <p>Hello {user_name},</p>
+                <p>We received a request to reset your TarFixer account password. Click the button below to create a new password:</p>
+                
+                <div style="text-align: center;">
+                    <a href="{reset_link}" class="button">Reset Password</a>
+                </div>
+                
+                <p><strong>This link will expire in 1 hour.</strong></p>
+                
+                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style="background: #e9e9e9; padding: 10px; border-radius: 5px; word-break: break-all; font-size: 12px;">{reset_link}</p>
+                
+                <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
+                
+                <div class="footer">
+                    <p>© 2025 TarFixer - Road Damage Detection System</p>
+                    <p>This is an automated email, please do not reply.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Reset Your TarFixer Password
+    
+    Hello {user_name},
+    
+    We received a request to reset your password. Click the link below:
+    
+    {reset_link}
+    
+    This link expires in 1 hour.
+    
+    If you didn't request this, please ignore this email.
+    
+    © 2025 TarFixer
+    """
+    
+    return send_email(to_email, subject, html_content, text_content)
 
 def require_auth(user_types=None):
     """Decorator to require authentication"""
@@ -418,6 +625,431 @@ def validate_session():
             'email': request.current_user['email'],
             'user_type': request.current_user['user_type']
         }
+    }), 200
+
+@app.route('/api/auth/google-signup', methods=['POST'])
+def google_signup():
+    """Handle Google OAuth signup"""
+    data = request.get_json()
+    
+    email = data.get('email', '').strip().lower()
+    google_id = data.get('google_id', '')
+    name = data.get('name', email.split('@')[0])
+    user_type = data.get('user_type', 'user').lower()
+    id_token = data.get('id_token', '')
+    email_verified = data.get('email_verified', True)
+    
+    if not email or not google_id:
+        log_audit('GOOGLE_SIGNUP_FAILED', email, {'reason': 'missing_credentials'})
+        return jsonify({'error': 'Email and Google ID required'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check if user already exists
+    c.execute('SELECT id, email, user_type, approved FROM users WHERE email = ?', (email,))
+    existing = c.fetchone()
+    
+    if existing:
+        conn.close()
+        if existing['approved']:
+            return jsonify({'error': 'Account already exists. Please use login instead.'}), 409
+        else:
+            return jsonify({
+                'error': 'Account pending approval',
+                'status': 'pending',
+                'message': 'Your account is awaiting officer approval'
+            }), 403
+    
+    # Check whitelist for privileged accounts
+    approved = True
+    if user_type in ['officer', 'worker']:
+        c.execute('SELECT email, status FROM whitelist WHERE email = ?', (email,))
+        whitelist_entry = c.fetchone()
+        if not whitelist_entry:
+            approved = False
+        elif whitelist_entry['status'] != 'approved':
+            approved = False
+    
+    # Create new user
+    password_hash = hashlib.sha256(f'google_{google_id}'.encode()).hexdigest()
+    
+    c.execute('''
+        INSERT INTO users (email, password_hash, user_type, approved, name, google_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (email, password_hash, user_type, approved, name, google_id, datetime.now().isoformat()))
+    
+    user_id = c.lastrowid
+    
+    # Add to whitelist if privileged and not approved
+    if not approved and user_type in ['officer', 'worker']:
+        c.execute('''
+            INSERT OR IGNORE INTO whitelist (email, user_type, status, requested_at)
+            VALUES (?, ?, 'pending', ?)
+        ''', (email, user_type, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        
+        log_audit('GOOGLE_SIGNUP_PENDING', email, {'user_type': user_type})
+        return jsonify({
+            'error': 'Account requires approval',
+            'status': 'pending',
+            'message': 'Your account request is pending officer approval'
+        }), 403
+    
+    # Create session for approved users
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(days=7)
+    
+    c.execute('''
+        INSERT INTO sessions (user_id, token, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+    ''', (user_id, token, expires_at.isoformat(), datetime.now().isoformat()))
+    
+    conn.commit()
+    conn.close()
+    
+    log_audit('GOOGLE_SIGNUP_SUCCESS', email, {'user_type': user_type, 'method': 'google'})
+    
+    return jsonify({
+        'token': token,
+        'email': email,
+        'user_type': user_type,
+        'name': name,
+        'expires_at': expires_at.isoformat()
+    }), 201
+
+@app.route('/api/auth/google-login', methods=['POST'])
+def google_login():
+    """Handle Google OAuth login"""
+    data = request.get_json()
+    
+    email = data.get('email', '').strip().lower()
+    google_id = data.get('google_id', '')
+    id_token = data.get('id_token', '')
+    
+    if not email or not google_id:
+        log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'missing_credentials'})
+        return jsonify({'error': 'Email and Google ID required'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Find user by email and google_id
+    c.execute('''
+        SELECT id, email, user_type, approved, name, google_id
+        FROM users
+        WHERE email = ? AND (google_id = ? OR google_id IS NULL)
+    ''', (email, google_id))
+    user = c.fetchone()
+    
+    if not user:
+        conn.close()
+        log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'user_not_found'})
+        return jsonify({'error': 'No account found. Please sign up first.'}), 404
+    
+    # Update google_id if not set
+    if not user['google_id']:
+        c.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user['id']))
+    
+    # Check if approved
+    if not user['approved']:
+        conn.close()
+        log_audit('GOOGLE_LOGIN_BLOCKED', email, {'reason': 'pending_approval'})
+        return jsonify({
+            'error': 'Account pending approval',
+            'status': 'pending'
+        }), 403
+    
+    # Create session
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(days=7)
+    
+    c.execute('''
+        INSERT INTO sessions (user_id, token, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+    ''', (user['id'], token, expires_at.isoformat(), datetime.now().isoformat()))
+    
+    # Update last login
+    c.execute('UPDATE users SET last_login = ? WHERE id = ?',
+              (datetime.now().isoformat(), user['id']))
+    
+    conn.commit()
+    conn.close()
+    
+    log_audit('GOOGLE_LOGIN_SUCCESS', email, {'user_type': user['user_type'], 'method': 'google'})
+    
+    return jsonify({
+        'token': token,
+        'email': email,
+        'user_type': user['user_type'],
+        'name': user['name'],
+        'expires_at': expires_at.isoformat()
+    }), 200
+
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """Handle forgot password request - generates reset token with rate limiting"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+    
+    # Rate limiting: Check if too many reset requests from this email
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check recent reset requests (last 15 minutes)
+    fifteen_min_ago = (datetime.now() - timedelta(minutes=15)).isoformat()
+    c.execute('''
+        SELECT COUNT(*) as count FROM password_resets
+        WHERE user_id = (SELECT id FROM users WHERE email = ?)
+        AND created_at > ?
+    ''', (email, fifteen_min_ago))
+    
+    recent_requests = c.fetchone()
+    if recent_requests and recent_requests['count'] >= 3:
+        conn.close()
+        log_audit('PASSWORD_RESET_RATE_LIMITED', email, {'attempts': recent_requests['count']})
+        return jsonify({'error': 'Too many reset requests. Please try again later.'}), 429
+    
+    # Check if user exists
+    c.execute('SELECT id, email, name FROM users WHERE email = ?', (email,))
+    user = c.fetchone()
+    
+    if not user:
+        # Don't reveal if user exists or not (security best practice)
+        return jsonify({
+            'message': 'If an account exists with this email, you will receive password reset instructions.',
+            'success': True
+        }), 200
+    
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now() + timedelta(hours=1)  # Token valid for 1 hour
+    
+    # Store reset token
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            verification_code TEXT,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # Add verification_code column if it doesn't exist
+    try:
+        c.execute("SELECT verification_code FROM password_resets LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE password_resets ADD COLUMN verification_code TEXT")
+    
+    # Generate verification code
+    verification_code = generate_verification_code()
+    
+    c.execute('''
+        INSERT INTO password_resets (user_id, token, verification_code, expires_at, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user['id'], reset_token, verification_code, expires_at.isoformat(), datetime.now().isoformat()))
+    
+    conn.commit()
+    conn.close()
+    
+    # Send email with reset link and verification code
+    reset_link = f"http://localhost:8000/Login/reset-password.html?token={reset_token}"
+    
+    # Send both emails: link and verification code
+    email_sent_link = send_password_reset_link_email(email, reset_link, email.split('@')[0])
+    email_sent_code = send_verification_code_email(email, verification_code, email.split('@')[0])
+    
+    log_audit('PASSWORD_RESET_REQUEST', email, {
+        'token_generated': True,
+        'email_sent_link': email_sent_link,
+        'email_sent_code': email_sent_code
+    })
+    
+    return jsonify({
+        'message': 'Password reset instructions have been sent to your email.',
+        'success': True,
+        # Keep for development (remove in production)
+        'dev_reset_link': reset_link,
+        'dev_token': reset_token,
+        'dev_verification_code': verification_code
+    }), 200
+
+@app.route('/api/auth/verify-code', methods=['POST'])
+def verify_code():
+    """Verify the 6-digit code before allowing password reset"""
+    data = request.get_json()
+    token = data.get('token', '')
+    code = data.get('code', '').strip()
+    
+    if not token or not code:
+        return jsonify({'error': 'Token and verification code are required'}), 400
+    
+    if len(code) != 6 or not code.isdigit():
+        return jsonify({'error': 'Invalid verification code format'}), 400
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check if token and code match
+    c.execute('''
+        SELECT pr.id, pr.user_id, pr.verification_code, pr.expires_at, pr.used, u.email
+        FROM password_resets pr
+        JOIN users u ON pr.user_id = u.id
+        WHERE pr.token = ?
+    ''', (token,))
+    
+    reset = c.fetchone()
+    conn.close()
+    
+    if not reset:
+        return jsonify({'error': 'Invalid or expired reset token'}), 400
+    
+    if reset['used']:
+        return jsonify({'error': 'This reset link has already been used'}), 400
+    
+    # Check expiration (10 minutes for verification codes)
+    expires_at = datetime.fromisoformat(reset['expires_at'])
+    if datetime.now() > expires_at:
+        return jsonify({'error': 'Verification code has expired. Please request a new reset link.'}), 400
+    
+    # Verify code
+    if reset['verification_code'] != code:
+        log_audit('VERIFICATION_CODE_FAILED', reset['email'], {'ip': request.remote_addr})
+        return jsonify({'error': 'Invalid verification code'}), 400
+    
+    log_audit('VERIFICATION_CODE_SUCCESS', reset['email'], {'ip': request.remote_addr})
+    
+    return jsonify({
+        'message': 'Verification successful. You can now reset your password.',
+        'success': True
+    }), 200
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token with brute-force protection"""
+    data = request.get_json()
+    token = data.get('token', '')
+    new_password = data.get('password', '')
+    verification_code = data.get('code', '').strip()
+    
+    if not token or not new_password:
+        return jsonify({'error': 'Token and new password are required'}), 400
+    
+    if not verification_code:
+        return jsonify({'error': 'Verification code is required'}), 400
+    
+    if len(new_password) < 8:
+        return jsonify({'error': 'Password must be at least 8 characters'}), 400
+    
+    # Rate limiting: Track failed token attempts by IP
+    client_ip = request.remote_addr
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Create table for tracking failed attempts if not exists
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS reset_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address TEXT NOT NULL,
+            attempted_at TEXT NOT NULL
+        )
+    ''')
+    
+    # Clean old attempts (older than 1 hour)
+    one_hour_ago = (datetime.now() - timedelta(hours=1)).isoformat()
+    c.execute('DELETE FROM reset_attempts WHERE attempted_at < ?', (one_hour_ago,))
+    
+    # Check failed attempts from this IP in last hour
+    c.execute('''
+        SELECT COUNT(*) as count FROM reset_attempts
+        WHERE ip_address = ? AND attempted_at > ?
+    ''', (client_ip, one_hour_ago))
+    
+    attempts = c.fetchone()
+    if attempts and attempts['count'] >= 10:
+        conn.close()
+        log_audit('PASSWORD_RESET_BLOCKED', 'unknown', {
+            'reason': 'too_many_attempts',
+            'ip': client_ip
+        })
+        return jsonify({'error': 'Too many failed attempts. Please try again later.'}), 429
+    
+    # Find valid reset token and verify code
+    c.execute('''
+        SELECT pr.id, pr.user_id, pr.verification_code, pr.expires_at, pr.used, u.email
+        FROM password_resets pr
+        JOIN users u ON pr.user_id = u.id
+        WHERE pr.token = ? AND pr.used = 0
+    ''', (token,))
+    
+    reset_request = c.fetchone()
+    
+    # Verify the code matches
+    if not reset_request or reset_request['verification_code'] != verification_code:
+        # Log failed attempt
+        c.execute('''
+            INSERT INTO reset_attempts (ip_address, attempted_at)
+            VALUES (?, ?)
+        ''', (client_ip, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        log_audit('PASSWORD_RESET_FAILED', 'unknown', {
+            'reason': 'invalid_token',
+            'ip': client_ip
+        })
+        return jsonify({'error': 'Invalid or expired reset token'}), 400
+    
+    # Check if token expired
+    expires_at = datetime.fromisoformat(reset_request['expires_at'])
+    if datetime.now() > expires_at:
+        # Log failed attempt
+        c.execute('''
+            INSERT INTO reset_attempts (ip_address, attempted_at)
+            VALUES (?, ?)
+        ''', (client_ip, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        log_audit('PASSWORD_RESET_FAILED', reset_request['email'], {
+            'reason': 'expired_token',
+            'ip': client_ip
+        })
+        return jsonify({'error': 'Reset token has expired. Please request a new one.'}), 400
+    
+    # Hash new password using the same method as login (with email as salt)
+    password_hash = hash_password(new_password, reset_request['email'])
+    
+    # Update password
+    c.execute('UPDATE users SET password_hash = ? WHERE id = ?',
+              (password_hash, reset_request['user_id']))
+    
+    # Mark token as used
+    c.execute('UPDATE password_resets SET used = 1 WHERE id = ?',
+              (reset_request['id'],))
+    
+    # Invalidate all other sessions for this user (force re-login)
+    c.execute('DELETE FROM sessions WHERE user_id = ?',
+              (reset_request['user_id'],))
+    
+    conn.commit()
+    conn.close()
+    
+    log_audit('PASSWORD_RESET_SUCCESS', reset_request['email'], {
+        'ip': client_ip,
+        'sessions_invalidated': True
+    })
+    
+    return jsonify({
+        'message': 'Password has been reset successfully. You can now log in with your new password.',
+        'success': True
     }), 200
 
 # ---------------------------------------------------------
@@ -798,4 +1430,4 @@ if __name__ == '__main__':
     print(f"🗄️  Database: SQLite ({DATABASE})")
     print(f"🤖 YOLO Model: {'✅ Loaded' if model else '❌ Not Loaded'}")
     print("=" * 60)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)

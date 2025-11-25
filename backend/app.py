@@ -12,7 +12,7 @@ app = Flask(__name__)
 CORS(app)
 
 # 2. Load YOLO model
-model_path = r"E:\road-damage\runs\detect\train22\weights\best.pt"
+model_path = r"c:\Users\ninje\Downloads\Road damage\runs\detect\train22\weights\best.pt"
 try:
     model = YOLO(model_path)
     print("✅ YOLO model loaded successfully.")

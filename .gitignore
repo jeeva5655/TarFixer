@@ -59,6 +59,9 @@ desktop.ini
 .env
 .env.local
 
+# Email Configuration (contains sensitive credentials)
+backend/email_config.py
+
 # Temporary files
 tmp/
 temp/

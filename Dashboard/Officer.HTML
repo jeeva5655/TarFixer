@@ -365,12 +365,8 @@
 <script>
 const API = new TarFixerAPI();
 
-/* ---------- MOCK DATA (with afterImage field) ---------- */
-let reports = [
-  { id: 'TF-001', user: 'Siva', road: 'Anna Salai', severity: 75, lat: 13.0827, lng: 80.2707, status: 'new', assignedTo: null, image: 'https://via.placeholder.com/600x400/aa3333/fff?text=Damage+TF-001', afterImage: null },
-  { id: 'TF-002', user: 'Raj', road: 'OMR Road', severity: 45, lat: 12.9716, lng: 80.2446, status: 'done', assignedTo: 'Ramesh', image: 'https://via.placeholder.com/600x400/555555/fff?text=Damage+TF-002', afterImage: 'https://via.placeholder.com/600x400/2e7d32/fff?text=Repaired+TF-002' },
-  { id: 'TF-003', user: 'Anita', road: 'Velachery', severity: 20, lat: 12.98, lng: 80.22, status: 'resolved', assignedTo: 'Suresh', image: 'https://via.placeholder.com/600x400/666/fff?text=Damage+TF-003', afterImage: 'https://via.placeholder.com/600x400/2e7d32/fff?text=Repaired+TF-003' }
-];
+/* ---------- REPORTS DATA ---------- */
+let reports = [];
 
 const workers = [
   { name: 'Ramesh K', status: 'Available', zone: 'Zone 4' },

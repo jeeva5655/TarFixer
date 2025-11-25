@@ -5,8 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TarFixer - Login</title>
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
 <!-- API Client -->
 <script src="../api-client.js"></script>
+
+<!-- Firebase Config -->
+<script src="../firebase-config.js"></script>
 
 <style>
     body {
@@ -208,6 +215,172 @@
     .status-message.info { color: #ffe57f; }
     .status-message.error { color: #ff4242; }
 
+    /* FORGOT PASSWORD MODAL */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-overlay.show {
+        display: flex;
+    }
+
+    .forgot-modal {
+        width: 90%;
+        max-width: 400px;
+        background: rgba(255,255,255,0.14);
+        padding: 30px;
+        border-radius: 18px;
+        backdrop-filter: blur(13px);
+        box-shadow: 0 0 28px rgba(255,255,255,0.25);
+        color: white;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .forgot-modal h3 {
+        margin: 0 0 10px 0;
+        font-size: 24px;
+        color: white;
+    }
+
+    .forgot-modal p {
+        margin: 0 0 20px 0;
+        font-size: 14px;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .forgot-modal input {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: none;
+        margin-bottom: 8px;
+        background: rgba(255,255,255,0.9);
+        font-size: 15px;
+        box-sizing: border-box;
+    }
+
+    .forgot-modal input:focus {
+        outline: none;
+        background: white;
+    }
+
+    .forgot-modal .error-msg {
+        color: #ff6b6b;
+        font-size: 12px;
+        margin-bottom: 15px;
+        min-height: 18px;
+    }
+
+    .forgot-modal-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .forgot-modal-actions button {
+        flex: 1;
+        padding: 12px;
+        border-radius: 8px;
+        border: none;
+        font-size: 15px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .forgot-modal-actions .btn-submit {
+        background: white;
+        color: black;
+    }
+
+    .forgot-modal-actions .btn-submit:hover {
+        background: rgba(255,255,255,0.9);
+    }
+
+    .forgot-modal-actions .btn-cancel {
+        background: transparent;
+        color: white;
+        border: 1px solid rgba(255,255,255,0.5);
+    }
+
+    .forgot-modal-actions .btn-cancel:hover {
+        background: rgba(255,255,255,0.1);
+    }
+
+    /* SUCCESS MODAL */
+    .success-modal {
+        width: 90%;
+        max-width: 400px;
+        background: rgba(255,255,255,0.14);
+        padding: 30px;
+        border-radius: 18px;
+        backdrop-filter: blur(13px);
+        box-shadow: 0 0 28px rgba(255,255,255,0.25);
+        color: white;
+        text-align: center;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    .success-modal .icon {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 20px;
+        background: rgba(126, 247, 161, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+    }
+
+    .success-modal h3 {
+        margin: 0 0 10px 0;
+        font-size: 24px;
+        color: white;
+    }
+
+    .success-modal p {
+        margin: 0 0 25px 0;
+        font-size: 14px;
+        color: rgba(255,255,255,0.8);
+        line-height: 1.6;
+    }
+
+    .success-modal button {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: none;
+        font-size: 15px;
+        cursor: pointer;
+        font-weight: 600;
+        background: white;
+        color: black;
+    }
+
+    .success-modal button:hover {
+        background: rgba(255,255,255,0.9);
+    }
+
 </style>
 </head>
 
@@ -241,13 +414,13 @@
             <img src="https://cdn-icons-png.flaticon.com/512/709/709612.png" onclick="togglePassword('pwd')">
         </div>
 
-        <div class="forgot"><a href="#">Forgot Password?</a></div>
+        <div class="forgot"><a href="#" onclick="showForgotPassword(event)">Forgot Password?</a></div>
 
         <button class="main-btn" onclick="validateLogin()">Sign In</button>
 
         <div class="or">OR</div>
 
-        <div class="google-btn">
+        <div class="google-btn" onclick="handleGoogleSignIn()">
             <img src="google.png"> Continue with Google
         </div>
 
@@ -293,6 +466,35 @@
 
     </div>
 
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div class="modal-overlay" id="forgotPasswordModal">
+    <div class="forgot-modal">
+        <h3>Reset Password</h3>
+        <p>Enter your email address and we'll send you instructions to reset your password.</p>
+        <input type="email" id="forgotEmailInput" placeholder="Enter your email address">
+        <div class="error-msg" id="forgotEmailError"></div>
+        <div class="forgot-modal-actions">
+            <button class="btn-cancel" onclick="closeForgotPasswordModal()">Cancel</button>
+            <button class="btn-submit" onclick="submitForgotPassword()">Send Reset Link</button>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal-overlay" id="successModal">
+    <div class="success-modal">
+        <div class="icon">✓</div>
+        <h3>Reset Link Generated!</h3>
+        <p id="successMessage">Your password reset link has been generated. Click below to open the reset page.</p>
+        <div id="verificationCodeDisplay" style="display:none; background: rgba(0,255,170,0.1); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid rgba(0,255,170,0.3);">
+            <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 5px;">Your verification code:</div>
+            <div style="font-size: 24px; font-weight: 700; color: #0fa; letter-spacing: 3px;" id="verificationCode"></div>
+            <div style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 5px;">You'll need this code on the next page</div>
+        </div>
+        <button onclick="openResetPage()">Open Reset Page</button>
+    </div>
 </div>
 
 <script>
@@ -1015,36 +1217,337 @@ async function validateSignup() {
 }
 
 // ==========================================
-// GOOGLE SIGN-IN (Properly Implemented)
+// GOOGLE SIGN-IN (Firebase Integration)
 // ==========================================
 
-function initGoogleSignIn() {
+async function handleGoogleSignIn() {
     const googleBtn = document.querySelector('.google-btn');
-    if (googleBtn) {
-        googleBtn.addEventListener('click', handleGoogleSignIn);
+    const originalHTML = googleBtn.innerHTML;
+    
+    // Check if running on localhost
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' || 
+                       window.location.hostname === '[::1]';
+    
+    if (isLocalhost) {
+        alert('Google Sign-In is not available on localhost.\n\nPlease use:\n• Email/Password login above\n• Or deploy to a proper domain\n\nFor local testing, create an account using the Sign Up tab.');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        googleBtn.innerHTML = '<img src="google.png" style="width: 20px;"> Signing in...';
+        googleBtn.style.pointerEvents = 'none';
+        googleBtn.style.opacity = '0.7';
+        
+        // Initialize Firebase if not already done
+        if (!auth) {
+            console.log('Initializing Firebase...');
+            await initializeFirebase();
+        }
+        
+        console.log('Starting Google Sign-In popup...');
+        
+        // Sign in with Google Popup
+        const result = await signInWithGooglePopup();
+        
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        
+        console.log('Google Sign-In successful:', result.user);
+        
+        // Get user type based on email
+        const userType = getUserTypeFromEmail(result.user.email);
+        
+        // Register/Login with backend using Google credentials
+        await handleGoogleBackendAuth(result.user, result.idToken, userType);
+        
+    } catch (error) {
+        console.error('Google Sign-In Error:', error);
+        
+        // Restore button
+        googleBtn.innerHTML = originalHTML;
+        googleBtn.style.pointerEvents = 'auto';
+        googleBtn.style.opacity = '1';
+        
+        // Show error
+        const errorMsg = error.message || 'Google Sign-In failed';
+        if (errorMsg !== 'Sign-in popup was closed') {
+            alert('Google Sign-In Error:\n\n' + errorMsg);
+        }
     }
 }
 
-async function handleGoogleSignIn() {
-    alert('Google Sign-In Feature:\n\n' +
-          'To enable this feature, you need to:\n' +
-          '1. Create a Google Cloud Project\n' +
-          '2. Enable Google Identity Services\n' +
-          '3. Get OAuth 2.0 credentials\n' +
-          '4. Add your domain to authorized domains\n\n' +
-          'For now, please use Email/Password signup.\n\n' +
-          'Same whitelist rules apply to Google Sign-In:\n' +
-          '- Officer/Worker emails must be pre-approved\n' +
-          '- Public emails (Gmail, etc.) auto-approved as Users');
+// Determine user type from email domain
+function getUserTypeFromEmail(email) {
+    const emailLower = email.toLowerCase();
     
-    logAuditEvent('GOOGLE_SIGNIN_ATTEMPTED', 'anonymous', { status: 'not_implemented' });
+    if (emailLower.includes('@officer.com') || emailLower.includes('@office.com')) {
+        return 'officer';
+    } else if (emailLower.includes('@worker.com')) {
+        return 'worker';
+    } else {
+        return 'user'; // Default for public emails (gmail, yahoo, etc.)
+    }
 }
+
+// Authenticate with backend after Google Sign-In
+async function handleGoogleBackendAuth(googleUser, idToken, userType) {
+    try {
+        // Try to login first (user might already exist)
+        try {
+            const loginResponse = await fetch(`${API_BASE_URL}/auth/google-login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: googleUser.email,
+                    google_id: googleUser.uid,
+                    name: googleUser.displayName,
+                    id_token: idToken,
+                    user_type: userType
+                })
+            });
+            
+            if (loginResponse.ok) {
+                const data = await loginResponse.json();
+                
+                // Store token and user data
+                API.token = data.token;
+                API.user = {
+                    email: data.email,
+                    name: data.name,
+                    userType: data.user_type,
+                    expiresAt: data.expires_at
+                };
+                
+                localStorage.setItem('tarfixer_auth_token', API.token);
+                localStorage.setItem('tarfixer_user_data', JSON.stringify(API.user));
+                
+                // Redirect to appropriate dashboard
+                redirectToDashboard(data.user_type);
+                return;
+            }
+        } catch (loginError) {
+            console.log('User not found, attempting signup...');
+        }
+        
+        // If login fails, try signup
+        const signupResponse = await fetch(`${API_BASE_URL}/auth/google-signup`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: googleUser.email,
+                google_id: googleUser.uid,
+                name: googleUser.displayName,
+                id_token: idToken,
+                user_type: userType,
+                email_verified: googleUser.emailVerified
+            })
+        });
+        
+        const data = await signupResponse.json();
+        
+        if (!signupResponse.ok) {
+            if (signupResponse.status === 403 && data.status === 'pending') {
+                // Pending approval
+                alert('Account Pending Approval\n\nYour account request has been submitted and is pending officer approval.\n\nYou will receive an email once your account is approved.');
+                return;
+            }
+            throw new Error(data.error || 'Google authentication failed');
+        }
+        
+        // Store token and user data
+        API.token = data.token;
+        API.user = {
+            email: data.email,
+            name: data.name,
+            userType: data.user_type,
+            expiresAt: data.expires_at
+        };
+        
+        localStorage.setItem('tarfixer_auth_token', API.token);
+        localStorage.setItem('tarfixer_user_data', JSON.stringify(API.user));
+        
+        // Redirect to appropriate dashboard
+        redirectToDashboard(data.user_type);
+        
+    } catch (error) {
+        console.error('Backend authentication error:', error);
+        throw error;
+    }
+}
+
+// Redirect to appropriate dashboard
+function redirectToDashboard(userType) {
+    sessionStorage.removeItem('just_redirected');
+    
+    let dashboard = '../Dashboard/User.HTML';
+    if (userType === 'officer') {
+        dashboard = '../Dashboard/Officer.HTML';
+    } else if (userType === 'worker') {
+        dashboard = '../Dashboard/Worker.HTML';
+    }
+    
+    console.log('Redirecting to:', dashboard);
+    window.location.replace(dashboard);
+}
+
+// ==========================================
+// FORGOT PASSWORD FUNCTIONALITY
+// ==========================================
+
+function showForgotPassword(event) {
+    event.preventDefault();
+    document.getElementById('forgotPasswordModal').classList.add('show');
+    document.getElementById('forgotEmailInput').value = '';
+    document.getElementById('forgotEmailError').textContent = '';
+    setTimeout(() => document.getElementById('forgotEmailInput').focus(), 100);
+}
+
+function closeForgotPasswordModal() {
+    document.getElementById('forgotPasswordModal').classList.remove('show');
+}
+
+function submitForgotPassword() {
+    const emailInput = document.getElementById('forgotEmailInput');
+    const email = emailInput.value.trim();
+    const errorEl = document.getElementById('forgotEmailError');
+    
+    errorEl.textContent = '';
+    
+    if (!email) {
+        errorEl.textContent = 'Email is required';
+        return;
+    }
+    
+    if (!isValidEmail(email)) {
+        errorEl.textContent = 'Please enter a valid email address';
+        return;
+    }
+    
+    handleForgotPassword(email);
+}
+
+// Close modal when clicking outside
+document.getElementById('forgotPasswordModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeForgotPasswordModal();
+    }
+});
+
+let resetLink = '';
+
+async function handleForgotPassword(email) {
+    const submitBtn = document.querySelector('.forgot-modal .btn-submit');
+    const originalText = submitBtn.textContent;
+    
+    try {
+        submitBtn.textContent = 'Sending...';
+        submitBtn.disabled = true;
+        
+        const API_URL = 'http://localhost:5000/api';
+        console.log('Sending forgot password request for:', email);
+        
+        const response = await fetch(`${API_URL}/auth/forgot-password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: email.toLowerCase() })
+        });
+        
+        const data = await response.json();
+        console.log('Forgot password response:', data);
+        
+        if (response.ok) {
+            closeForgotPasswordModal();
+            
+            // Clear email input
+            document.getElementById('forgotEmailInput').value = '';
+            
+            // Show success modal WITHOUT verification code on screen
+            if (data.dev_reset_link) {
+                // Show reset link button but NOT the verification code
+                resetLink = data.dev_reset_link;
+                document.getElementById('successMessage').textContent = 
+                    'Password reset instructions and verification code have been sent to your email. Please check your inbox (and spam folder).';
+                document.getElementById('verificationCodeDisplay').style.display = 'none';
+                document.getElementById('successModal').classList.add('show');
+                
+                // Log to console for development debugging only (not visible to user)
+                console.log('Reset link:', data.dev_reset_link);
+                console.log('Verification code sent to email');
+            } else {
+                // Production: email sent
+                document.getElementById('successMessage').textContent = 
+                    data.message || 'Password reset instructions and verification code have been sent to your email. Please check your inbox and spam folder.';
+                document.getElementById('verificationCodeDisplay').style.display = 'none';
+                document.getElementById('successModal').classList.add('show');
+                resetLink = ''; // No link in production
+            }
+        } else {
+            document.getElementById('forgotEmailError').textContent = data.error || 'Failed to process request. Please make sure the email is registered.';
+        }
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        document.getElementById('forgotEmailError').textContent = 'Failed to send request. Please try again.';
+    } finally {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+function openResetPage() {
+    if (resetLink) {
+        console.log('Redirecting to:', resetLink);
+        window.location.href = resetLink;
+    } else {
+        alert('No reset link available. Please check your email for instructions.');
+        document.getElementById('successModal').classList.remove('show');
+    }
+}
+
+// Close success modal when clicking outside
+document.getElementById('successModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.classList.remove('show');
+        resetLink = '';
+    }
+});
 
 // ==========================================
 // INITIALIZE ON PAGE LOAD
 // ==========================================
 
 window.addEventListener('load', async () => {
+    // Check if running on localhost and disable Google Sign-In
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1' || 
+                       window.location.hostname === '[::1]';
+    
+    if (isLocalhost) {
+        const googleBtn = document.querySelector('.google-btn');
+        if (googleBtn) {
+            googleBtn.style.opacity = '0.5';
+            googleBtn.style.cursor = 'not-allowed';
+            googleBtn.title = 'Google Sign-In is not available on localhost. Please use email/password login or deploy to a domain.';
+        }
+        console.warn('⚠️ Google Sign-In disabled on localhost');
+    } else {
+        // Initialize Firebase only if not on localhost
+        try {
+            await initializeFirebase();
+            console.log('✅ Firebase ready for Google Sign-In');
+        } catch (error) {
+            console.error('Firebase initialization failed:', error);
+        }
+    }
+    
     // Clear old localStorage sessions (use backend token instead)
     localStorage.removeItem('tarfixer_session');
     localStorage.removeItem('tarfixer_users_db');
