@@ -45,15 +45,21 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 CORS(app, 
      supports_credentials=True, 
-     origins=["*"],
+     origins=["http://localhost:5500", "http://127.0.0.1:5500", "https://tar-fixer.vercel.app"],
      allow_headers=["Content-Type", "Authorization", "Accept"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type", "Authorization"])
 
 # Add CORS headers to all responses
+# Add CORS headers to all responses
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    origin = request.headers.get('Origin')
+    if origin in ["http://localhost:5500", "http://127.0.0.1:5500", "https://tar-fixer.vercel.app"]:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    else:
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
