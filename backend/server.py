@@ -11,7 +11,8 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
-# import numpy as np (Removed for lightweight deployment)
+# import re
+import numpy as np (Removed for lightweight deployment)
 # try:
 #     import cv2
 # except Exception:
@@ -45,10 +46,15 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 CORS(app, 
      supports_credentials=True, 
-     origins=["http://localhost:5500", "http://127.0.0.1:5500", "https://tar-fixer.vercel.app"],
+     origins=["http://localhost:5500", "http://127.0.0.1:5500", re.compile(r"^https://.*\.vercel\.app$")],
      allow_headers=["Content-Type", "Authorization", "Accept"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type", "Authorization"])
+
+@app.before_request
+def log_request_info():
+    origin = request.headers.get('Origin')
+    print(f"🌐 Request from Origin: {origin} -> {request.method} {request.path}")
 
 # Add CORS headers to all responses
 # (Handled by Flask-CORS)
