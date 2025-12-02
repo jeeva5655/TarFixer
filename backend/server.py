@@ -199,17 +199,29 @@ def init_db():
 # ---------------------------------------------------------
 # Load YOLO Model
 # ---------------------------------------------------------
-MODEL_PATH = r"C:\Users\ninje\Downloads\Road damage\runs\detect\train22\weights\best.pt"
+# Use relative path for deployment
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model", "best.pt")
+
 if YOLO is None:
     model = None
     print("⚠️ Ultralytics not installed. Detection endpoint will be disabled.")
 else:
     try:
-        model = YOLO(MODEL_PATH)
-        print("✅ YOLOv11 model loaded successfully.")
+        if os.path.exists(MODEL_PATH):
+            model = YOLO(MODEL_PATH)
+            print(f"✅ YOLOv11 model loaded successfully from {MODEL_PATH}")
+        else:
+            print(f"⚠️ Model file not found at {MODEL_PATH}")
+            model = None
     except Exception as e:
         print(f"❌ Failed to load YOLO model: {e}")
         model = None
+
+# Initialize DB on module load (for production servers like Gunicorn)
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ Database initialization warning: {e}")
 
 # ---------------------------------------------------------
 # Utility Functions
@@ -1421,7 +1433,7 @@ def health_check():
 # Run the App
 # ---------------------------------------------------------
 if __name__ == '__main__':
-    init_db()
+    # init_db() is already called at module level
     print("=" * 60)
     print("🚀 TarFixer Backend Server Starting...")
     print("=" * 60)
@@ -1430,4 +1442,6 @@ if __name__ == '__main__':
     print(f"🗄️  Database: SQLite ({DATABASE})")
     print(f"🤖 YOLO Model: {'✅ Loaded' if model else '❌ Not Loaded'}")
     print("=" * 60)
-    app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)
+    
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
