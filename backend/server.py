@@ -199,6 +199,25 @@ AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'http://localhost:7860')
 
 print(f"🤖 AI Service URL: {AI_SERVICE_URL}")
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Simple health check to verify backend is running and DB is accessible"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('SELECT 1')
+        conn.close()
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+        
+    return jsonify({
+        'status': 'online',
+        'database': db_status,
+        'ai_service': AI_SERVICE_URL,
+        'timestamp': datetime.now().isoformat()
+    }), 200
+
 # Initialize DB on module load (for production servers like Gunicorn)
 try:
     init_db()
