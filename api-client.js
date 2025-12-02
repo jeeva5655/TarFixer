@@ -3,7 +3,7 @@
  * Frontend integration with backend API
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://tarfixer-backend.onrender.com/api';
 const TOKEN_KEY = 'tarfixer_auth_token';
 const USER_KEY = 'tarfixer_user_data';
 
