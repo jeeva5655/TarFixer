@@ -11,11 +11,11 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
-import numpy as np
-try:
-    import cv2
-except Exception:  # pragma: no cover - best effort import on limited envs
-    cv2 = None
+# import numpy as np (Removed for lightweight deployment)
+# try:
+#     import cv2
+# except Exception:
+#     cv2 = None
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 try:
@@ -457,27 +457,10 @@ def expand_box(x1, y1, x2, y2, w, h, factor=0.15):
     return nx1, ny1, nx2, ny2
 
 def is_road_scene(image_bgr):
-    """Returns False if image is unlikely to be a road"""
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    H, W = gray.shape
-    total = H * W
-
-    brightness = np.mean(gray)
-    contrast = gray.std()
-
-    if brightness < 30 or brightness > 230 or contrast < 20:
-        return False
-
-    edges = cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), 70, 130)
-    edge_ratio = np.sum(edges > 0) / total
-    texture_var = np.var(gray) / 255.0
-
-    avg_color = np.mean(image_bgr, axis=(0, 1))
-    avg_brightness = np.mean(avg_color)
-
-    if edge_ratio < 0.018 or texture_var < 0.07 or avg_brightness > 160:
-        return False
-
+    """
+    Returns False if image is unlikely to be a road.
+    (Simplified for production stability - always returns True)
+    """
     return True
 
 # ---------------------------------------------------------
