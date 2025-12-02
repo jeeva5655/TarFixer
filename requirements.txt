@@ -4,7 +4,4 @@ Pillow==10.1.0
 opencv-python-headless==4.8.1.78
 numpy==1.24.3
 gunicorn==21.2.0
-# Temporarily removed heavy AI libs to fix build on free tier
-# ultralytics==8.1.0
-# torch==2.1.2+cpu
-# torchvision==0.16.2+cpu
+requests==2.31.0

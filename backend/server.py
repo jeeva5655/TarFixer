@@ -197,25 +197,13 @@ def init_db():
     print("✅ Database initialized successfully")
 
 # ---------------------------------------------------------
-# Load YOLO Model
+# AI Service Configuration
 # ---------------------------------------------------------
-# Use relative path for deployment
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model", "best.pt")
+# URL of the AI service on Hugging Face
+# We will update this with the real URL after deployment
+AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'http://localhost:7860')
 
-if YOLO is None:
-    model = None
-    print("⚠️ Ultralytics not installed. Detection endpoint will be disabled.")
-else:
-    try:
-        if os.path.exists(MODEL_PATH):
-            model = YOLO(MODEL_PATH)
-            print(f"✅ YOLOv11 model loaded successfully from {MODEL_PATH}")
-        else:
-            print(f"⚠️ Model file not found at {MODEL_PATH}")
-            model = None
-    except Exception as e:
-        print(f"❌ Failed to load YOLO model: {e}")
-        model = None
+print(f"🤖 AI Service URL: {AI_SERVICE_URL}")
 
 # Initialize DB on module load (for production servers like Gunicorn)
 try:
@@ -1103,78 +1091,6 @@ def detect():
             "detection_count": 0,
             "severity_label": "No Road Detected"
         })
-
-    # YOLO Detection
-    results = model.predict(source=pil_image, conf=0.25, iou=0.45, save=False)
-    det_count, damage_pct, severity = 0, 0.0, "No Damage"
-
-    if results and results[0].boxes is not None:
-        r = results[0]
-        det_count = len(r.boxes)
-        avg_conf = 0.0
-        union_mask = np.zeros((H, W), dtype=np.uint8)
-
-        for box in r.boxes:
-            conf = float(box.conf) if box.conf is not None else 1.0
-            avg_conf += conf
-            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-            expand_factor = 0.2 if conf < 0.5 else 0.12
-            x1, y1, x2, y2 = expand_box(x1, y1, x2, y2, W, H, expand_factor)
-            cv2.rectangle(union_mask, (x1, y1), (x2, y2), 255, -1)
-
-        avg_conf /= max(det_count, 1)
-        union_pixels = np.count_nonzero(union_mask)
-        union_ratio = union_pixels / total_pixels
-
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(cv2.GaussianBlur(gray, (5, 5), 0), 70, 130)
-        dark_mask = (gray < 90).astype(np.uint8) * 255
-
-        dark_ratio = np.sum(dark_mask > 0) / total_pixels
-        edge_ratio = np.sum(edges > 0) / total_pixels
-
-        visual_weight = (dark_ratio * 0.25 + edge_ratio * 0.75)
-        raw_ratio = (union_ratio * 0.8) + (visual_weight * 0.2)
-        raw_ratio *= (1.0 + (det_count * 0.25))
-
-        if avg_conf < 0.45:
-            raw_ratio *= 1.1
-
-        if det_count <= 1:
-            raw_ratio = min(raw_ratio, 0.70)
-        else:
-            raw_ratio = min(raw_ratio, 1.0)
-
-        damage_pct = round(clamp(raw_ratio, 0.0, 1.0) * 100.0, 2)
-
-        if damage_pct < 30:
-            severity = "Minor"
-        elif damage_pct <= 60:
-            severity = "Moderate"
-        else:
-            severity = "Severe"
-
-    # Annotate and encode image
-    annotated = results[0].plot()
-    ann_pil = Image.fromarray(annotated[..., ::-1])
-    buf = io.BytesIO()
-    ann_pil.save(buf, format="JPEG")
-    img_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-    ann_url = f"data:image/jpeg;base64,{img_b64}"
-
-    log_audit('DETECTION_RUN', request.current_user['email'], {
-        'damage_percentage': damage_pct,
-        'severity': severity,
-        'detection_count': det_count
-    })
-
-    return jsonify({
-        "damage_percentage": damage_pct,
-        "annotated_image": ann_url,
-        "detection_count": det_count,
-        "severity_label": severity
-    })
-
 # ---------------------------------------------------------
 # Report Management Routes
 # ---------------------------------------------------------
