@@ -1330,18 +1330,6 @@ def reject_request(request_id):
     return update_approval_status(request_id, 'rejected')
 
 # ---------------------------------------------------------
-# Health Check
-# ---------------------------------------------------------
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None,
-        'timestamp': datetime.now().isoformat()
-    }), 200
-
-# ---------------------------------------------------------
 # Run the App
 # ---------------------------------------------------------
 if __name__ == '__main__':
@@ -1352,7 +1340,7 @@ if __name__ == '__main__':
     print(f"📍 API Base URL: http://localhost:5000/api")
     print(f"🔐 Authentication: Token-based (JWT-style)")
     print(f"🗄️  Database: SQLite ({DATABASE})")
-    print(f"🤖 YOLO Model: {'✅ Loaded' if model else '❌ Not Loaded'}")
+    print(f"🤖 AI Service: {AI_SERVICE_URL}")
     print("=" * 60)
     
     port = int(os.environ.get('PORT', 5000))
