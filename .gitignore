@@ -36,6 +36,7 @@ backend/tarfixer.db
 
 # YOLO Models (large files)
 *.pt
+!backend/model/best.pt
 *.pth
 *.weights
 yolo*.pt
