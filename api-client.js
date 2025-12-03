@@ -175,6 +175,12 @@ class TarFixerAPI {
             const data = await response.json();
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    console.warn('Session expired or invalid. Redirecting to login...');
+                    this.logout();
+                    window.location.href = '/Login/Choose_login.html';
+                    throw new Error('Session expired. Please login again.');
+                }
                 throw new Error(data.error || 'Detection failed');
             }
 
