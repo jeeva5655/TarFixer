@@ -205,6 +205,15 @@ AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'http://localhost:7860')
 
 print(f"🤖 AI Service URL: {AI_SERVICE_URL}")
 
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint"""
+    return jsonify({
+        'message': 'Welcome to TarFixer API',
+        'status': 'online',
+        'docs': '/api/health'
+    }), 200
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Simple health check to verify backend is running and DB is accessible"""
