@@ -1450,7 +1450,7 @@ async function handleForgotPassword(email) {
         submitBtn.textContent = 'Sending...';
         submitBtn.disabled = true;
         
-        const API_URL = 'http://localhost:5000/api';
+        const API_URL = 'https://tarfixer-backend.onrender.com/api';
         console.log('Sending forgot password request for:', email);
         
         const response = await fetch(`${API_URL}/auth/forgot-password`, {
