@@ -606,7 +606,8 @@ function loadReports(){ try{ return JSON.parse(localStorage.getItem(STORAGE_REPO
 function saveReports(r){ localStorage.setItem(STORAGE_REPORTS, JSON.stringify(r)); }
 
 /* ---------- API Client ---------- */
-const API = new TarFixerAPI();
+// API is already initialized in api-client.js
+// const API = new TarFixerAPI(); 
 console.log('✅ API Client initialized');
 
 /* ---------- App state ---------- */
