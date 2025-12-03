@@ -12,11 +12,11 @@ import secrets
 from datetime import datetime, timedelta
 from functools import wraps
 import re
-# import numpy as np (Removed for lightweight deployment)
-# try:
-#     import cv2
-# except Exception:
-#     cv2 = None
+import numpy as np
+try:
+    import cv2
+except Exception:
+    cv2 = None
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 try:
@@ -73,6 +73,21 @@ def log_request_info():
 # ---------------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "tarfixer.db")
+
+# ---------------------------------------------------------
+# Model Setup
+# ---------------------------------------------------------
+model = None
+try:
+    model_path = os.path.join(BASE_DIR, "model", "best.pt")
+    if YOLO and os.path.exists(model_path):
+        print(f"🔄 Loading YOLO model from {model_path}...")
+        model = YOLO(model_path)
+        print("✅ YOLO Model loaded successfully")
+    else:
+        print(f"⚠️ YOLO Model not found at {model_path} or YOLO library missing")
+except Exception as e:
+    print(f"❌ Failed to load YOLO model: {e}")
 
 def get_db():
     """Get database connection"""
