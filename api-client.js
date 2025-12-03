@@ -4,6 +4,7 @@
  */
 
 const API_BASE_URL = 'https://tarfixer-backend.onrender.com/api';
+console.log('🚀 TarFixer API Client v2.0 Loaded - URL:', API_BASE_URL);
 const TOKEN_KEY = 'tarfixer_auth_token';
 const USER_KEY = 'tarfixer_user_data';
 
