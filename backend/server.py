@@ -201,7 +201,7 @@ def init_db():
 # ---------------------------------------------------------
 # URL of the AI service on Hugging Face
 # We will update this with the real URL after deployment
-AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'http://localhost:7860')
+AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'https://huggingface.co/spaces/Jeeva5655/tarfixer-ai')
 
 print(f"🤖 AI Service URL: {AI_SERVICE_URL}")
 
@@ -1352,7 +1352,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print("🚀 TarFixer Backend Server Starting...")
     print("=" * 60)
-    print(f"📍 API Base URL: http://localhost:5000/api")
+    print(f"📍 API Base URL: {os.environ.get('RENDER_EXTERNAL_URL', 'http://localhost:5000')}/api")
     print(f"🔐 Authentication: Token-based (JWT-style)")
     print(f"🗄️  Database: SQLite ({DATABASE})")
     print(f"🤖 AI Service: {AI_SERVICE_URL}")
