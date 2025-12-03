@@ -39,6 +39,15 @@ except ImportError:
     EMAIL_HOST_PASSWORD = ''
     EMAIL_FROM_ADDRESS = 'TarFixer <noreply@tarfixer.com>'
 
+# Override with Environment Variables (Render Support)
+# This ensures that settings from the Render Dashboard take precedence
+if os.environ.get('EMAIL_HOST'): EMAIL_HOST = os.environ.get('EMAIL_HOST')
+if os.environ.get('EMAIL_PORT'): EMAIL_PORT = int(os.environ.get('EMAIL_PORT'))
+if os.environ.get('EMAIL_HOST_USER'): EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+if os.environ.get('EMAIL_HOST_PASSWORD'): EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+print(f"📧 Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}")
+
 # ---------------------------------------------------------
 # Flask Initialization
 # ---------------------------------------------------------
