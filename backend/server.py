@@ -812,6 +812,26 @@ def forgot_password():
     c = conn.cursor()
     
     # Check recent reset requests (last 15 minutes)
+    # Ensure table exists first to avoid 500 error on fresh DB
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            verification_code TEXT,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # Add verification_code column if it doesn't exist (migration)
+    try:
+        c.execute("SELECT verification_code FROM password_resets LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE password_resets ADD COLUMN verification_code TEXT")
+
     fifteen_min_ago = (datetime.now() - timedelta(minutes=15)).isoformat()
     c.execute('''
         SELECT COUNT(*) as count FROM password_resets
