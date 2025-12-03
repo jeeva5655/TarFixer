@@ -11,7 +11,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
-# import re
+import re
 # import numpy as np (Removed for lightweight deployment)
 # try:
 #     import cv2
