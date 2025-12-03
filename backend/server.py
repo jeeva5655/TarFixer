@@ -872,7 +872,8 @@ def forgot_password():
     conn.close()
     
     # Send email with reset link and verification code
-    reset_link = f"http://localhost:8000/Login/reset-password.html?token={reset_token}"
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://tar-fixer.vercel.app')
+    reset_link = f"{FRONTEND_URL}/Login/reset-password.html?token={reset_token}"
     
     # Send both emails: link and verification code
     email_sent_link = send_password_reset_link_email(email, reset_link, email.split('@')[0])
