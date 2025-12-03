@@ -214,7 +214,7 @@ class TarFixerAPI {
 
     async getReports(status = null) {
         try {
-            const url = status 
+            const url = status
                 ? `${API_BASE_URL}/reports?status=${status}`
                 : `${API_BASE_URL}/reports`;
 
@@ -461,3 +461,6 @@ class TarFixerAPI {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = TarFixerAPI;
 }
+
+// Initialize global instance for browser usage
+const API = new TarFixerAPI();
