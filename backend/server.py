@@ -1127,6 +1127,10 @@ def detect():
 
     try:
         pil_image = Image.open(image_file.stream).convert("RGB")
+        
+        # MEMORY FIX: Resize to max 640x640 to prevent OOM on Render Free Tier
+        pil_image.thumbnail((640, 640))
+        
         img_bgr = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
     except Exception as e:
         return jsonify({'error': f'Invalid image file: {e}'}), 400

@@ -172,13 +172,34 @@ class TarFixerAPI {
                 body: formData
             });
 
-            const data = await response.json();
-
+            // Handle non-OK responses first
             if (!response.ok) {
-                throw new Error(data.error || 'Detection failed');
+                // Check specifically for session expiration (401)
+                if (response.status === 401) {
+                    console.warn('Session expired. Redirecting to login...');
+                    this.logout();
+                    window.location.href = '../Login/Choose_login.html?error=session_expired';
+                    throw new Error('Session expired. Please login again.');
+                }
+                
+                // Try to parse error message from JSON, or fall back to text
+                let errorMessage = 'Detection failed';
+                try {
+                    const data = await response.json();
+                    errorMessage = data.error || errorMessage;
+                } catch (e) {
+                    // If JSON parse fails, it might be an HTML error page (500)
+                    const text = await response.text();
+                    console.error('Server returned non-JSON error:', text.substring(0, 100)); // Log first 100 chars
+                    errorMessage = 'Server is overloaded. Please use a smaller image.';
+                }
+                throw new Error(errorMessage);
             }
 
+            // Response is OK, safe to parse JSON
+            const data = await response.json();
             return data;
+
         } catch (error) {
             console.error('Detection error:', error);
             throw error;
