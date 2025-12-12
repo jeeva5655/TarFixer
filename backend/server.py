@@ -1308,31 +1308,67 @@ def detect():
                 traceback.print_exc()
                 return jsonify({'error': f"AI Model Inference Failed: {str(e)}"}), 500
         else:
-            # DEMO MODE: Simulated detection for Render free tier
-            print("📡 DEMO MODE: Using simulated road damage detection")
-            import random
+            # Use Hugging Face Space API for detection
+            print("📡 Using Hugging Face Space for AI detection...")
+            import requests
             
-            # Generate random but realistic damage percentage
-            percent = random.uniform(15, 65)
-            det_count = random.randint(1, 5)
-            
-            # Draw simulated detection boxes on the image
-            annotated_frame = img_bgr.copy()
-            for i in range(det_count):
-                x1 = random.randint(50, W - 150)
-                y1 = random.randint(50, H - 150)
-                x2 = x1 + random.randint(80, 150)
-                y2 = y1 + random.randint(60, 120)
-                # Draw red box
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                cv2.putText(annotated_frame, f"Damage {i+1}", (x1, y1-10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            
-            # Add demo watermark
-            cv2.putText(annotated_frame, "DEMO MODE", (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-            
-            print(f"✅ Demo detection complete: {percent:.1f}% damage, {det_count} areas")
+            try:
+                # Convert image to bytes for API call
+                img_byte_arr = io.BytesIO()
+                pil_image.save(img_byte_arr, format='JPEG')
+                img_byte_arr.seek(0)
+                
+                # Call Hugging Face Space API
+                HF_API_URL = "https://jeeva5655-tarfixer-ai.hf.space/detect"
+                print(f"📤 Sending image to: {HF_API_URL}")
+                
+                files = {'image': ('image.jpg', img_byte_arr, 'image/jpeg')}
+                response = requests.post(HF_API_URL, files=files, timeout=60)
+                
+                print(f"📥 HF Response Status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    hf_result = response.json()
+                    print(f"✅ HF Detection Result: {hf_result}")
+                    
+                    percent = hf_result.get('damage_percentage', 0)
+                    det_count = hf_result.get('detection_count', 0)
+                    
+                    # Get annotated image from HF response
+                    hf_img_b64 = hf_result.get('annotated_image', '')
+                    if hf_img_b64:
+                        # Decode and use HF's annotated image
+                        img_data = base64.b64decode(hf_img_b64)
+                        nparr = np.frombuffer(img_data, np.uint8)
+                        annotated_frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    else:
+                        annotated_frame = img_bgr.copy()
+                else:
+                    print(f"❌ HF API Error: {response.text}")
+                    # Fallback to demo mode
+                    import random
+                    percent = random.uniform(15, 65)
+                    det_count = random.randint(1, 5)
+                    annotated_frame = img_bgr.copy()
+                    cv2.putText(annotated_frame, "API Error - Demo", (10, 30), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+                    
+            except requests.exceptions.Timeout:
+                print("⏱️ HF API Timeout - using demo mode")
+                import random
+                percent = random.uniform(15, 65)
+                det_count = random.randint(1, 5)
+                annotated_frame = img_bgr.copy()
+                cv2.putText(annotated_frame, "Timeout - Demo", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+            except Exception as e:
+                print(f"❌ HF API Error: {e}")
+                import random
+                percent = random.uniform(15, 65)
+                det_count = random.randint(1, 5)
+                annotated_frame = img_bgr.copy()
+                cv2.putText(annotated_frame, "Error - Demo", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
         # Encode annotated image to base64
         try:
