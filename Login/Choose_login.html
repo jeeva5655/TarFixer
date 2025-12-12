@@ -1468,7 +1468,7 @@
                 submitBtn.textContent = 'Sending...';
                 submitBtn.disabled = true;
 
-                const API_URL = 'https://tarfixer-backend.onrender.com/api';
+                const API_URL = API_BASE_URL; // Use the global API_BASE_URL from api-client
                 console.log('Sending forgot password request for:', email);
 
                 const response = await fetch(`${API_URL}/auth/forgot-password`, {

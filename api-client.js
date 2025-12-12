@@ -3,13 +3,17 @@
  * Frontend integration with backend API
  */
 
-const API_BASE_URL = 'https://tarfixer-backend.onrender.com/api';
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocal
+    ? 'http://localhost:5000/api'
+    : 'https://tarfixer-backend.onrender.com/api';
 console.log('🚀 TarFixer API Client v2.0 Loaded - URL:', API_BASE_URL);
 const TOKEN_KEY = 'tarfixer_auth_token';
 const USER_KEY = 'tarfixer_user_data';
 
 class TarFixerAPI {
     constructor() {
+        this.baseURL = API_BASE_URL;
         this.token = localStorage.getItem(TOKEN_KEY);
         this.user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
     }
@@ -164,11 +168,19 @@ class TarFixerAPI {
             const formData = new FormData();
             formData.append('image', imageFile);
 
+            // Check for test mode (URL has ?test=true)
+            const isTestMode = window.location.search.includes('test=true');
+            const headers = {
+                'Authorization': `Bearer ${this.token}`
+            };
+            if (isTestMode) {
+                headers['X-Test-Mode'] = 'true';
+                console.log('⚠️ Test mode detected, adding X-Test-Mode header');
+            }
+
             const response = await fetch(`${API_BASE_URL}/detect`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                },
+                headers: headers,
                 body: formData
             });
 

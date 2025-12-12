@@ -21,8 +21,10 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 try:
     from ultralytics import YOLO
+    import torch
 except Exception:  # pragma: no cover - allow server to run without YOLO weights
     YOLO = None
+    torch = None
 from PIL import Image
 import sqlite3
 import smtplib
@@ -55,8 +57,8 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
 CORS(app, 
      supports_credentials=True, 
-     origins=["http://localhost:5500", "http://127.0.0.1:5500", re.compile(r"^https://.*\.vercel\.app$")],
-     allow_headers=["Content-Type", "Authorization", "Accept"],
+     origins=["http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080", "null", re.compile(r"^https://.*\.vercel\.app$"), re.compile(r"^https://.*\.github\.io$")],
+     allow_headers=["Content-Type", "Authorization", "Accept", "X-Test-Mode"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type", "Authorization"])
 
@@ -461,6 +463,16 @@ def require_auth(user_types=None):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # TEST MODE: Allow unauthenticated requests when running locally
+            # Check for test header or local development
+            is_test_mode = request.headers.get('X-Test-Mode') == 'true'
+            is_local = request.host.startswith('localhost') or request.host.startswith('127.0.0.1')
+            
+            if is_test_mode and is_local:
+                print("⚠️ TEST MODE: Authentication bypassed for local testing")
+                request.current_user = {'user_id': 0, 'email': 'test@test.com', 'user_type': 'user'}
+                return f(*args, **kwargs)
+            
             token = request.headers.get('Authorization', '').replace('Bearer ', '')
             
             if not token:
@@ -610,7 +622,8 @@ def login():
     
     # Create session token
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.now() + timedelta(hours=24)
+    # Extended to 30 days for offline convenience
+    expires_at = datetime.now() + timedelta(days=30)
     
     c.execute('''INSERT INTO sessions (token, user_id, email, user_type, created_at, expires_at)
                  VALUES (?, ?, ?, ?, ?, ?)''',
@@ -1109,48 +1122,194 @@ def reset_password():
     }), 200
 
 # ---------------------------------------------------------
+# Diagnostics & Global Error Handling
+# ---------------------------------------------------------
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Global error handler to ensure JSON responses"""
+    # Pass through HTTP errors
+    if hasattr(e, 'code'):
+        return jsonify({'error': str(e)}), e.code
+    
+    # Log the specific error
+    print(f"❌ CRITICAL SERVER ERROR: {str(e)}")
+    import traceback
+    traceback.print_exc()
+    
+    return jsonify({
+        'error': 'Internal Server Error', 
+        'details': str(e),
+        'note': 'Please check server logs for more details'
+    }), 500
+
+@app.route('/api/health/diagnostics', methods=['GET'])
+def diagnostics():
+    """Diagnostic endpoint to check server health"""
+    import sys
+    
+    return jsonify({
+        'status': 'online',
+        'system': {
+            'python_version': sys.version,
+            'platform': sys.platform,
+        },
+        'components': {
+            'opencv': 'loaded' if cv2 else 'failed',
+            'pillow': 'loaded', # Since we import Image successfully
+            'sqlite': 'loaded',
+            'yolo_model': 'loaded' if model else 'not_loaded'
+        },
+        'environment': {
+            'render_host': os.environ.get('RENDER', 'False'),
+            'port': os.environ.get('PORT', '5000')
+        }
+    }), 200
+
+# ---------------------------------------------------------
 # Road Damage Detection Route
 # ---------------------------------------------------------
 @app.route('/api/detect', methods=['POST'])
 @require_auth()
 def detect():
     """Detect road damage in uploaded image"""
-    if model is None:
-        return jsonify({'error': 'Model not loaded'}), 500
+    print("🔍 Analysis Request Received")
+    
+    # Check diagnostics first
     if cv2 is None:
-        return jsonify({'error': 'OpenCV not available on this server build'}), 500
+        print("❌ Error: OpenCV not loaded")
+        return jsonify({'error': 'Server Configuration Error: OpenCV not available'}), 500
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
 
-    image_file = request.files['image']
-
     try:
-        pil_image = Image.open(image_file.stream).convert("RGB")
+        image_file = request.files['image']
+        
+        # Log file size and name
+        image_file.seek(0, os.SEEK_END)
+        size = image_file.tell()
+        image_file.seek(0)
+        print(f"📸 Image recieved: {image_file.filename} ({size} bytes)")
+        
+        # Load image with PIL
+        try:
+            pil_image = Image.open(image_file.stream).convert("RGB")
+        except Exception as e:
+            print(f"❌ PIL Image Load Error: {e}")
+            return jsonify({'error': 'Invalid image format. Please upload a valid JPG or PNG.'}), 400
         
         # MEMORY FIX: Resize to max 640x640 to prevent OOM on Render Free Tier
-        pil_image.thumbnail((640, 640))
-        
-        img_bgr = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    except Exception as e:
-        return jsonify({'error': f'Invalid image file: {e}'}), 400
+        # This is critical for free tier instances with 512MB RAM
+        try:
+            pil_image.thumbnail((640, 640))
+        except Exception as e:
+            print(f"❌ Resize Error: {e}")
+            return jsonify({'error': 'Failed to process image size.'}), 500
+            
+        # Convert to BGR for OpenCV
+        try:
+            img_bgr = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            print(f"❌ NumPy/CV2 Conversion Error: {e}")
+            return jsonify({'error': 'Image processing failed internally.'}), 500
 
-    H, W = img_bgr.shape[:2]
-    total_pixels = H * W
+        H, W = img_bgr.shape[:2]
+        print(f"📏 Processed Image Size: {W}x{H}")
 
-    # Check if image is a road
-    if not is_road_scene(img_bgr):
-        black = np.zeros_like(img_bgr)
-        _, buf = cv2.imencode(".jpg", black)
-        img_b64 = base64.b64encode(buf).decode("utf-8")
-        img_url = f"data:image/jpeg;base64,{img_b64}"
+        # Check if image is a road (Placeholder function)
+        if not is_road_scene(img_bgr):
+            print("⚠️ Image rejected by road scene classifier (mock)")
+            black = np.zeros_like(img_bgr)
+            _, buf = cv2.imencode(".jpg", black)
+            img_b64 = base64.b64encode(buf).decode("utf-8")
+            img_url = f"data:image/jpeg;base64,{img_b64}"
 
-        return jsonify({
-            "damage_percentage": 0.0,
+            return jsonify({
+                "damage_percentage": 0.0,
+                "annotated_image": img_url,
+                "detection_count": 0,
+                "severity_label": "No Road Detected"
+            })
+            
+        # --------------------------------
+        # YOLO MODEL INFERENCE
+        # --------------------------------
+        if model:
+            try:
+                # Determine device
+                device = 'cpu'
+                device_name = 'CPU'
+                if torch and torch.cuda.is_available():
+                    device = 0
+                    device_name = f"GPU ({torch.cuda.get_device_name(0)})"
+                
+                print(f"🧠 Running YOLO inference on {device_name}...")
+                print(f"🖥️  Device Check: Using {device_name.upper()} for inference.")
+
+                # Run inference with lower confidence threshold to catch more
+                results = model.predict(img_bgr, conf=0.25, verbose=True, device=device)
+                
+                # Visualize results on the image
+                annotated_frame = results[0].plot()
+                
+                # Count detections
+                det_count = len(results[0].boxes)
+                print(f"✅ Inference successful. Detections: {det_count}")
+                
+                # Calculate damage percentage (simple approximation based on box area)
+                total_area = H * W
+                damage_area = 0
+                for box in results[0].boxes:
+                    # box.xywh returns center_x, center_y, width, height
+                    w, h = box.xywh[0][2].item(), box.xywh[0][3].item()
+                    damage_area += w * h
+                
+                percent = (damage_area / total_area) * 100
+                percent = min(percent, 100.0) # Cap at 100%
+                
+            except Exception as e:
+                print(f"❌ YOLO Inference Error: {e}")
+                import traceback
+                traceback.print_exc()
+                return jsonify({'error': f"AI Model Inference Failed: {str(e)}"}), 500
+        else:
+            print("⚠️ logic Warning: YOLO model not loaded, using mock fallback")
+            # If model is missing, we can either error out or fallback
+            # For now, let's error so we know something is wrong
+            return jsonify({'error': 'AI Model not loaded on server. Please check /api/health/diagnostics'}), 500
+
+        # Encode annotated image to base64
+        try:
+            _, buffer = cv2.imencode(".jpg", annotated_frame)
+            img_base64 = base64.b64encode(buffer).decode("utf-8")
+            img_url = f"data:image/jpeg;base64,{img_base64}"
+        except Exception as e:
+            print(f"❌ Image Encoding Error: {e}")
+            return jsonify({'error': 'Failed to encode result image.'}), 500
+
+        # Determine severity
+        if percent < 1: severity = "Negligible"
+        elif percent < 10: severity = "Low"
+        elif percent < 30: severity = "Medium"
+        elif percent < 60: severity = "High"
+        else: severity = "Critical"
+
+        response_data = {
+            "damage_percentage": round(percent, 2),
             "annotated_image": img_url,
-            "detection_count": 0,
-            "severity_label": "No Road Detected"
-        })
+            "detection_count": det_count,
+            "severity_label": severity,
+            "execution_device": device_name if 'device_name' in locals() else "CPU"
+        }
+        
+        return jsonify(response_data)
+
+    except Exception as e:
+        print(f"❌ Unhandled Error in /api/detect: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
 # ---------------------------------------------------------
 # Report Management Routes
 # ---------------------------------------------------------

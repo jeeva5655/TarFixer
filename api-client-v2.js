@@ -3,13 +3,17 @@
  * Frontend integration with backend API
  */
 
-const API_BASE_URL = 'https://tarfixer-backend.onrender.com/api';
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocal
+    ? 'http://localhost:5000/api'
+    : 'https://tarfixer-backend.onrender.com/api';
 console.log('🚀 TarFixer API Client v2.0 Loaded - URL:', API_BASE_URL);
 const TOKEN_KEY = 'tarfixer_auth_token';
 const USER_KEY = 'tarfixer_user_data';
 
 class TarFixerAPI {
     constructor() {
+        this.baseURL = API_BASE_URL;
         this.token = localStorage.getItem(TOKEN_KEY);
         this.user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
     }
@@ -181,7 +185,7 @@ class TarFixerAPI {
                     window.location.href = '../Login/Choose_login.html?error=session_expired';
                     throw new Error('Session expired. Please login again.');
                 }
-                
+
                 // Try to parse error message from JSON, or fall back to text
                 let errorMessage = 'Detection failed';
                 try {

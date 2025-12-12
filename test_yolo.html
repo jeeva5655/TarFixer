@@ -37,8 +37,10 @@
             
             try {
                 // Test 1: Check if backend is reachable
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const apiBase = isLocal ? 'http://localhost:5000/api' : 'https://tarfixer-backend.onrender.com/api';
                 resultDiv.innerHTML += '<p>✅ Step 1: Checking backend health...</p>';
-                const healthResponse = await fetch('https://tarfixer-backend.onrender.com/api/health');
+                const healthResponse = await fetch(apiBase + '/health');
                 const healthData = await healthResponse.json();
                 resultDiv.innerHTML += `<p>✅ Backend health: ${JSON.stringify(healthData)}</p>`;
                 
