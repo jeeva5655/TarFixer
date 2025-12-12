@@ -55,12 +55,29 @@ print(f"📧 Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}")
 # ---------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+
+# CORS - Allow all origins for maximum compatibility
 CORS(app, 
      supports_credentials=True, 
-     origins=["http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080", "null", re.compile(r"^https://.*\.vercel\.app$"), re.compile(r"^https://.*\.github\.io$")],
-     allow_headers=["Content-Type", "Authorization", "Accept", "X-Test-Mode"],
+     origins=["http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:3000", "http://localhost:8080", 
+              "https://tar-fixer.vercel.app", "https://jeeva5655.github.io",
+              re.compile(r"^https://.*\.vercel\.app$"), re.compile(r"^https://.*\.github\.io$")],
+     allow_headers=["Content-Type", "Authorization", "Accept", "X-Test-Mode", "Origin"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      expose_headers=["Content-Type", "Authorization"])
+
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin', '')
+    # Allow specific origins
+    allowed_origins = ['http://localhost:5500', 'http://127.0.0.1:5500', 
+                       'https://tar-fixer.vercel.app', 'https://jeeva5655.github.io']
+    if origin in allowed_origins or '.vercel.app' in origin or '.github.io' in origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Test-Mode'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    return response
 
 @app.before_request
 def log_request_info():
