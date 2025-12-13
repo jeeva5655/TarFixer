@@ -1242,16 +1242,6 @@
             const googleBtn = document.querySelector('.google-btn');
             const originalHTML = googleBtn.innerHTML;
 
-            // Check if running on localhost
-            const isLocalhost = window.location.hostname === 'localhost' ||
-                window.location.hostname === '127.0.0.1' ||
-                window.location.hostname === '[::1]';
-
-            if (isLocalhost) {
-                alert('Google Sign-In is not available on localhost.\n\nPlease use:\n• Email/Password login above\n• Or deploy to a proper domain\n\nFor local testing, create an account using the Sign Up tab.');
-                return;
-            }
-
             try {
                 // Show loading state
                 googleBtn.innerHTML = '<img src="google.png" style="width: 20px;"> Signing in...';

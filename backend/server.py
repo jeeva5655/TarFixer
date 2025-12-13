@@ -803,12 +803,14 @@ def google_signup():
 
 @app.route('/api/auth/google-login', methods=['POST'])
 def google_login():
-    """Handle Google OAuth login"""
+    """Handle Google OAuth login - Auto-registers new users"""
     data = request.get_json()
     
     email = data.get('email', '').strip().lower()
     google_id = data.get('google_id', '')
     id_token = data.get('id_token', '')
+    name = data.get('name', '')
+    user_type = data.get('user_type', 'user')
     
     if not email or not google_id:
         log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'missing_credentials'})
@@ -817,21 +819,49 @@ def google_login():
     conn = get_db()
     c = conn.cursor()
     
-    # Find user by email and google_id
+    # Find user by email
     c.execute('''
         SELECT id, email, user_type, approved, name, google_id
         FROM users
-        WHERE email = ? AND (google_id = ? OR google_id IS NULL)
-    ''', (email, google_id))
+        WHERE email = ?
+    ''', (email,))
     user = c.fetchone()
     
     if not user:
-        conn.close()
-        log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'user_not_found'})
-        return jsonify({'error': 'No account found. Please sign up first.'}), 404
+        # Auto-register new Google user
+        print(f"📝 Auto-registering new Google user: {email}")
+        
+        # Determine if auto-approval based on user type
+        # Regular users are auto-approved, officers/workers need approval
+        auto_approve = 1 if user_type == 'user' else 0
+        
+        try:
+            c.execute('''
+                INSERT INTO users (email, password_hash, user_type, name, google_id, approved, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (email, 'GOOGLE_AUTH', user_type, name, google_id, auto_approve, datetime.now().isoformat()))
+            conn.commit()
+            
+            # Fetch the newly created user
+            c.execute('SELECT id, email, user_type, approved, name, google_id FROM users WHERE email = ?', (email,))
+            user = c.fetchone()
+            
+            log_audit('GOOGLE_SIGNUP_SUCCESS', email, {'user_type': user_type, 'auto_approved': auto_approve})
+            
+            if not auto_approve:
+                conn.close()
+                return jsonify({
+                    'error': 'Account created! Pending admin approval.',
+                    'status': 'pending'
+                }), 403
+                
+        except Exception as e:
+            conn.close()
+            print(f"❌ Google signup error: {e}")
+            return jsonify({'error': 'Failed to create account'}), 500
     
     # Update google_id if not set
-    if not user['google_id']:
+    if user and not user['google_id']:
         c.execute('UPDATE users SET google_id = ? WHERE id = ?', (google_id, user['id']))
     
     # Check if approved
@@ -865,7 +895,7 @@ def google_login():
         'token': token,
         'email': email,
         'user_type': user['user_type'],
-        'name': user['name'],
+        'name': user['name'] or name,
         'expires_at': expires_at.isoformat()
     }), 200
 
