@@ -60,8 +60,12 @@ if os.environ.get('EMAIL_HOST'): EMAIL_HOST = os.environ.get('EMAIL_HOST')
 if os.environ.get('EMAIL_PORT'): EMAIL_PORT = int(os.environ.get('EMAIL_PORT'))
 if os.environ.get('EMAIL_HOST_USER'): EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 if os.environ.get('EMAIL_HOST_PASSWORD'): EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+if os.environ.get('EMAIL_FROM_ADDRESS'): 
+    EMAIL_FROM_ADDRESS = os.environ.get('EMAIL_FROM_ADDRESS')
+elif EMAIL_HOST_USER:
+    EMAIL_FROM_ADDRESS = f'TarFixer <{EMAIL_HOST_USER}>'
 
-print(f"📧 Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}")
+print(f"📧 Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}, From={EMAIL_FROM_ADDRESS}")
 
 # ---------------------------------------------------------
 # Flask Initialization
