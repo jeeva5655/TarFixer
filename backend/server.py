@@ -954,10 +954,13 @@ def forgot_password():
     user = c.fetchone()
     
     if not user:
+        conn.close()
         # Don't reveal if user exists or not (security best practice)
+        # But for development, provide feedback
         return jsonify({
             'message': 'If an account exists with this email, you will receive password reset instructions.',
-            'success': True
+            'success': True,
+            'dev_note': 'No account found with this email. Please sign up first.'
         }), 200
     
     # Generate reset token

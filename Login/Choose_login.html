@@ -1493,13 +1493,17 @@
                         // Show reset link button but NOT the verification code
                         resetLink = data.dev_reset_link;
                         document.getElementById('successMessage').textContent =
-                            'Password reset instructions and verification code have been sent to your email. Please check your inbox (and spam folder).';
+                            'Reset link generated! Click the button below to reset your password.';
                         document.getElementById('verificationCodeDisplay').style.display = 'none';
                         document.getElementById('successModal').classList.add('show');
 
                         // Log to console for development debugging only (not visible to user)
                         console.log('Reset link:', data.dev_reset_link);
                         console.log('Verification code sent to email');
+                    } else if (data.dev_note) {
+                        // User doesn't exist - show helpful message
+                        closeForgotPasswordModal();
+                        alert('No account found with this email. Please sign up first or check your email address.');
                     } else {
                         // Production: email sent
                         document.getElementById('successMessage').textContent =
