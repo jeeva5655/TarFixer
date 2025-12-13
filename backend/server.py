@@ -803,14 +803,17 @@ def google_signup():
 
 @app.route('/api/auth/google-login', methods=['POST'])
 def google_login():
-    """Handle Google OAuth login - Auto-registers new users"""
+    """Handle Google OAuth login - Auto-registers new users (PUBLIC USERS ONLY)"""
     data = request.get_json()
     
     email = data.get('email', '').strip().lower()
     google_id = data.get('google_id', '')
     id_token = data.get('id_token', '')
     name = data.get('name', '')
-    user_type = data.get('user_type', 'user')
+    
+    # Google Sign-In is ONLY for regular users (User Dashboard)
+    # Officers and Workers must use email/password with pre-approved accounts
+    user_type = 'user'
     
     if not email or not google_id:
         log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'missing_credentials'})

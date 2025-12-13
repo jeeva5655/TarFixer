@@ -436,6 +436,9 @@
             <div class="google-btn" onclick="handleGoogleSignIn()">
                 <img src="google.png"> Continue with Google
             </div>
+            <p style="font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 10px; text-align: center;">
+                Google Sign-In is for Public Users only.<br>Officers & Workers use email/password.
+            </p>
 
         </div>
 
@@ -1287,17 +1290,12 @@
             }
         }
 
-        // Determine user type from email domain
+        // Google Sign-In is only for regular users (User Dashboard)
+        // Officers and Workers must use email/password login
         function getUserTypeFromEmail(email) {
-            const emailLower = email.toLowerCase();
-
-            if (emailLower.includes('@officer.com') || emailLower.includes('@office.com')) {
-                return 'officer';
-            } else if (emailLower.includes('@worker.com')) {
-                return 'worker';
-            } else {
-                return 'user'; // Default for public emails (gmail, yahoo, etc.)
-            }
+            // Always return 'user' for Google Sign-In
+            // Officers and Workers must use email/password with pre-approved accounts
+            return 'user';
         }
 
         // Authenticate with backend after Google Sign-In
