@@ -10,8 +10,18 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-    <!-- API Client -->
+    <!-- API Client with fallback -->
     <script src="../api-client-v2.js"></script>
+    <script>
+        // Fallback if API client didn't load
+        if (typeof API_BASE_URL === 'undefined') {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            window.API_BASE_URL = isLocal
+                ? 'http://localhost:5000/api'
+                : 'https://tarfixer-backend.onrender.com/api';
+            console.log('⚠️ API Client fallback loaded - URL:', window.API_BASE_URL);
+        }
+    </script>
 
     <!-- Firebase Config -->
     <script src="../firebase-config.js"></script>
@@ -1456,8 +1466,9 @@
                 submitBtn.textContent = 'Sending...';
                 submitBtn.disabled = true;
 
-                const API_URL = API_BASE_URL; // Use the global API_BASE_URL from api-client
-                console.log('Sending forgot password request for:', email);
+                const API_URL = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'https://tarfixer-backend.onrender.com/api';
+                console.log('Sending forgot password request to:', `${API_URL}/auth/forgot-password`);
+                console.log('Email:', email);
 
                 const response = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
@@ -1467,6 +1478,7 @@
                     body: JSON.stringify({ email: email.toLowerCase() })
                 });
 
+                console.log('Response status:', response.status);
                 const data = await response.json();
                 console.log('Forgot password response:', data);
 
@@ -1501,7 +1513,15 @@
                 }
             } catch (error) {
                 console.error('Forgot password error:', error);
-                document.getElementById('forgotEmailError').textContent = 'Failed to send request. Please try again.';
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                let errorMsg = 'Failed to send request. ';
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    errorMsg += 'Network error - server may be starting up. Please wait a moment and try again.';
+                } else {
+                    errorMsg += error.message || 'Please try again.';
+                }
+                document.getElementById('forgotEmailError').textContent = errorMsg;
             } finally {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
