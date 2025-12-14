@@ -975,6 +975,13 @@ def logout():
     """User logout"""
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        fb_delete_session(token)
+        fb_log_audit('LOGOUT', request.current_user['email'])
+        return jsonify({'message': 'Logged out successfully'}), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     c.execute('DELETE FROM sessions WHERE token = ?', (token,))
@@ -1107,6 +1114,38 @@ def google_login():
         log_audit('GOOGLE_LOGIN_FAILED', email, {'reason': 'missing_credentials'})
         return jsonify({'error': 'Email and Google ID required'}), 400
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        user = fb_get_user_by_email(email)
+        
+        if not user:
+            # Auto-register new Google user
+            print(f"📝 Auto-registering new Google user in Firebase: {email}")
+            user_id = fb_create_user(email, 'GOOGLE_AUTH', user_type, name or email.split('@')[0])
+            if user_id:
+                fb_update_user(email, {'google_id': google_id})
+                fb_log_audit('GOOGLE_SIGNUP_SUCCESS', email, {'user_type': user_type})
+                user = fb_get_user_by_email(email)
+            else:
+                return jsonify({'error': 'Failed to create account'}), 500
+        
+        # Create session
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(days=7)
+        
+        fb_create_session(token, user['id'], email, user_type, expires_at)
+        fb_update_user(email, {'last_login': datetime.now().isoformat(), 'google_id': google_id})
+        fb_log_audit('GOOGLE_LOGIN_SUCCESS', email, {'user_type': user_type})
+        
+        return jsonify({
+            'token': token,
+            'email': email,
+            'user_type': user_type,
+            'name': user.get('name', name),
+            'expires_at': expires_at.isoformat()
+        }), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     
