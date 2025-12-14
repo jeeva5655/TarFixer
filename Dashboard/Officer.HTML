@@ -366,6 +366,42 @@
 // API is already initialized in api-client.js
 // const API = new TarFixerAPI();
 
+/* ---------- GEOCODING HELPER ---------- */
+// Cache for geocoded addresses to avoid repeated API calls
+const geocodeCache = {};
+
+async function reverseGeocode(lat, lng) {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  
+  // Check cache first
+  if (geocodeCache[cacheKey]) {
+    return geocodeCache[cacheKey];
+  }
+  
+  try {
+    // Use OpenStreetMap Nominatim (free, no API key needed)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      // Extract readable address
+      const address = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+      // Shorten address (take first 3 parts)
+      const parts = address.split(',').slice(0, 3).join(',').trim();
+      geocodeCache[cacheKey] = parts;
+      return parts;
+    }
+  } catch (error) {
+    console.warn('Geocoding failed:', error);
+  }
+  
+  // Fallback to coordinates
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+}
+
 /* ---------- REPORTS DATA ---------- */
 let reports = [];
 
@@ -377,34 +413,118 @@ async function fetchReports() {
     console.log('Reports received:', data);
     
     if (data && data.reports) {
-      reports = data.reports.map(r => ({
-        id: `#${r.id}`,
-        rawId: r.id,
-        road: `${r.latitude?.toFixed(4) || 0}, ${r.longitude?.toFixed(4) || 0}`,
-        lat: r.latitude || 0,
-        lng: r.longitude || 0,
-        severity: Math.round(r.confidence || 0),
-        status: r.status || 'new',
-        image: r.image_data ? `data:image/jpeg;base64,${r.image_data}` : '../placeholder.jpg',
-        assignedTo: r.assigned_to || '',
-        damage_type: r.damage_type || 'Unknown',
-        timestamp: r.created_at || new Date().toISOString(),
-        user_email: r.user_email || 'Anonymous'
-      }));
+      reports = data.reports.map(r => {
+        // Handle image_data - it may or may not have the data URL prefix
+        let imageUrl = '../placeholder.jpg';
+        if (r.image_data) {
+          if (r.image_data.startsWith('data:image')) {
+            imageUrl = r.image_data; // Already has prefix
+          } else {
+            imageUrl = `data:image/jpeg;base64,${r.image_data}`; // Add prefix
+          }
+        }
+        
+        return {
+          id: `#${r.id}`,
+          rawId: r.id,
+          road: `${r.latitude?.toFixed(4) || 0}, ${r.longitude?.toFixed(4) || 0}`,
+          lat: r.latitude || 0,
+          lng: r.longitude || 0,
+          severity: Math.round(r.confidence || 0),
+          status: r.status || 'new',
+          image: imageUrl,
+          assignedTo: r.assigned_worker || r.assigned_to || '',
+          damage_type: r.damage_type || 'Unknown',
+          timestamp: r.created_at || new Date().toISOString(),
+          user_email: r.user_email || 'Anonymous'
+        };
+      });
       console.log('Parsed reports:', reports);
       renderReports();
+      
+      // Fetch addresses in background (don't block rendering)
+      enrichReportsWithAddresses();
     }
   } catch (error) {
     console.error('Error fetching reports:', error);
   }
 }
 
-const workers = [
-  { name: 'Ramesh K', status: 'Available', zone: 'Zone 4' },
-  { name: 'Suresh M', status: 'Busy', zone: 'Zone 4' },
-  { name: 'Abdul R', status: 'Available', zone: 'Zone 4' },
-  { name: 'John D', status: 'Available', zone: 'Zone 4' }
-];
+// Enrich reports with human-readable addresses (runs in background)
+async function enrichReportsWithAddresses() {
+  for (let i = 0; i < reports.length; i++) {
+    const r = reports[i];
+    if (r.lat && r.lng) {
+      // Add small delay to avoid rate limiting (Nominatim allows 1 req/sec)
+      if (i > 0) await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const address = await reverseGeocode(r.lat, r.lng);
+      reports[i].road = address;
+    }
+  }
+  // Re-render with addresses
+  renderReports();
+}
+
+// Workers - fetched from API
+let workers = [];
+
+// Fetch workers from API
+async function fetchWorkers() {
+  try {
+    console.log('Fetching workers from API...');
+    const data = await API.getWorkers();
+    console.log('Workers received:', data);
+    
+    if (data && data.workers) {
+      workers = data.workers.map(w => ({
+        id: w.id,
+        name: w.name || w.email,
+        email: w.email,
+        status: w.status || 'Available',
+        zone: w.zone || 'Zone 1',
+        activeJobs: w.active_jobs || 0
+      }));
+      
+      if (data.demo) {
+        console.log('Using demo workers (no real workers in database)');
+      }
+      
+      renderWorkersList();
+    }
+  } catch (error) {
+    console.error('Error fetching workers:', error);
+    // Use fallback demo workers
+    workers = [
+      { id: '1', name: 'Ramesh K', email: 'ramesh@worker.com', status: 'Available', zone: 'Zone 1' },
+      { id: '2', name: 'Suresh M', email: 'suresh@worker.com', status: 'Busy', zone: 'Zone 2' },
+      { id: '3', name: 'Abdul R', email: 'abdul@worker.com', status: 'Available', zone: 'Zone 3' },
+      { id: '4', name: 'John D', email: 'john@worker.com', status: 'Available', zone: 'Zone 4' }
+    ];
+    renderWorkersList();
+  }
+}
+
+// Render workers in the assign modal
+function renderWorkersList() {
+  const container = document.getElementById('workersList');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  workers.forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'worker-option';
+    div.innerHTML = `
+      <input type="radio" name="worker" id="worker-${w.id}" value="${w.email || w.name}">
+      <label for="worker-${w.id}">
+        <strong>${w.name}</strong>
+        <span class="worker-status ${w.status === 'Available' ? 'available' : 'busy'}">${w.status}</span>
+        <span class="worker-zone">${w.zone}</span>
+      </label>
+    `;
+    container.appendChild(div);
+  });
+}
 
 let currentDetailId = null;
 let approvals = [];
@@ -656,18 +776,33 @@ function openAssignModal(id) {
       const div = document.createElement('div');
       div.className = 'worker-item';
       div.innerHTML = `<div><div style="font-weight:700">${w.name}</div><div style="font-size:12px;color:var(--muted)">${w.zone}</div></div><div class="worker-status status-avail">Available</div>`;
-      div.onclick = ()=> assignWorker(w.name);
+      div.onclick = ()=> assignWorker(w.email || w.name, w.name);
       container.appendChild(div);
     });
   }
   document.getElementById('workerModal').style.display = 'flex';
 }
 
-function assignWorker(name) {
+async function assignWorker(workerEmail, workerName) {
   if (!currentReportIdToAssign) return; // safety
-  reports = reports.map(r => r.id === currentReportIdToAssign ? {...r, status: 'assigned', assignedTo: name} : r);
-  document.getElementById('workerModal').style.display = 'none';
-  renderReports();
+  
+  try {
+    // Get the raw report ID (without # prefix)
+    const rawId = currentReportIdToAssign.replace('#', '');
+    
+    // Call API to assign worker
+    await API.assignReport(rawId, workerEmail);
+    
+    // Update local state
+    reports = reports.map(r => r.id === currentReportIdToAssign ? {...r, status: 'assigned', assignedTo: workerName} : r);
+    document.getElementById('workerModal').style.display = 'none';
+    renderReports();
+    
+    console.log(`✅ Assigned ${workerName} to report ${rawId}`);
+  } catch (error) {
+    console.error('Failed to assign worker:', error);
+    alert('Failed to assign worker: ' + error.message);
+  }
 }
 
 /* VERIFY & RESOLVE by officer (when status 'done') */
@@ -810,6 +945,9 @@ window.addEventListener('load', async () => {
   
   // Fetch and render reports from API
   await fetchReports();
+  
+  // Fetch workers from API
+  await fetchWorkers();
 
   const approvalFilterEl = document.getElementById('approvalStatusFilter');
   const defaultApprovalStatus = approvalFilterEl ? approvalFilterEl.value : 'pending';

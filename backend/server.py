@@ -346,6 +346,73 @@ def fb_log_audit(event_type, email, details=None):
         print(f"Firebase audit log error: {e}")
 
 # ---------------------------------------------------------
+# Firebase Workers Functions
+# ---------------------------------------------------------
+def fb_get_workers():
+    """Get all workers from Firebase"""
+    if not USE_FIREBASE:
+        return []
+    try:
+        # Get users with role 'worker'
+        users_ref = db.collection('users')
+        docs = users_ref.where('role', '==', 'worker').stream()
+        workers = []
+        for doc in docs:
+            data = doc.to_dict()
+            workers.append({
+                'id': doc.id,
+                'name': data.get('name', data.get('email', 'Unknown')),
+                'email': data.get('email'),
+                'status': data.get('status', 'Available'),
+                'zone': data.get('zone', 'Zone 1'),
+                'active_jobs': data.get('active_jobs', 0)
+            })
+        return workers
+    except Exception as e:
+        print(f"Firebase error getting workers: {e}")
+        return []
+
+def fb_create_worker(worker_data):
+    """Create a worker in Firebase (as a user with role=worker)"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        # Create as user with worker role
+        user_data = {
+            'email': worker_data.get('email'),
+            'name': worker_data.get('name'),
+            'password_hash': hashlib.sha256(worker_data.get('password', 'worker123').encode()).hexdigest(),
+            'role': 'worker',
+            'status': 'Available',
+            'zone': worker_data.get('zone', 'Zone 1'),
+            'active_jobs': 0,
+            'created_at': datetime.now().isoformat()
+        }
+        doc_ref = db.collection('users').add(user_data)
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"Firebase error creating worker: {e}")
+        return None
+
+def fb_update_worker_status(worker_email, status, active_jobs=None):
+    """Update worker status in Firebase"""
+    if not USE_FIREBASE:
+        return False
+    try:
+        users_ref = db.collection('users')
+        docs = users_ref.where('email', '==', worker_email).limit(1).stream()
+        for doc in docs:
+            updates = {'status': status}
+            if active_jobs is not None:
+                updates['active_jobs'] = active_jobs
+            doc.reference.update(updates)
+            return True
+        return False
+    except Exception as e:
+        print(f"Firebase error updating worker: {e}")
+        return False
+
+# ---------------------------------------------------------
 # SQLite Database Functions (Fallback)
 # ---------------------------------------------------------
 def get_db():
@@ -1789,15 +1856,53 @@ def create_report():
         user_email = request.current_user['email']
         now = datetime.now().isoformat()
         
-        # Don't store huge base64 images in Firebase (limit size)
+        # Get images and compress if needed
         annotated_img = data.get('annotated_image', '')
         original_img = data.get('original_image', '')
         
-        # Limit image size to prevent Firebase errors (max ~1MB base64)
-        if len(annotated_img) > 1000000:
-            annotated_img = annotated_img[:1000000]
-        if len(original_img) > 1000000:
-            original_img = ''  # Skip original if too large
+        def compress_image_base64(base64_str, max_size=800000):
+            """Compress base64 image to reduce size"""
+            if not base64_str or len(base64_str) <= max_size:
+                return base64_str
+            
+            try:
+                # Remove data URL prefix if present
+                if ',' in base64_str:
+                    prefix, b64_data = base64_str.split(',', 1)
+                else:
+                    prefix = 'data:image/jpeg;base64'
+                    b64_data = base64_str
+                
+                # Decode base64 to image
+                import io
+                img_data = base64.b64decode(b64_data)
+                img = Image.open(io.BytesIO(img_data))
+                
+                # Resize to reduce size
+                max_dim = 800
+                if img.width > max_dim or img.height > max_dim:
+                    ratio = min(max_dim / img.width, max_dim / img.height)
+                    new_size = (int(img.width * ratio), int(img.height * ratio))
+                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+                
+                # Convert to RGB if needed
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                
+                # Compress with JPEG
+                buffer = io.BytesIO()
+                img.save(buffer, format='JPEG', quality=60, optimize=True)
+                compressed_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                
+                print(f"📦 Image compressed: {len(base64_str)} -> {len(compressed_b64)} bytes")
+                return f"{prefix},{compressed_b64}"
+            except Exception as e:
+                print(f"⚠️ Image compression failed: {e}")
+                return base64_str[:max_size] if len(base64_str) > max_size else base64_str
+        
+        # Compress images if too large
+        annotated_img = compress_image_base64(annotated_img)
+        original_img = compress_image_base64(original_img) if original_img else ''
         
         report_data = {
             'user_email': user_email,
@@ -1926,7 +2031,7 @@ def get_my_reports():
     
     return jsonify(reports), 200
 
-@app.route('/api/reports/<int:report_id>/assign', methods=['POST'])
+@app.route('/api/reports/<report_id>/assign', methods=['POST'])
 @require_auth(['officer'])
 def assign_report(report_id):
     """Assign report to worker (officer only)"""
@@ -1936,11 +2041,32 @@ def assign_report(report_id):
     if not worker_email:
         return jsonify({'error': 'Worker email required'}), 400
     
+    now = datetime.now().isoformat()
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        success = fb_update_report(report_id, {
+            'assigned_worker': worker_email,
+            'status': 'assigned',
+            'updated_at': now
+        })
+        if success:
+            # Update worker status
+            fb_update_worker_status(worker_email, 'Busy')
+            fb_log_audit('REPORT_ASSIGNED', request.current_user['email'], {
+                'report_id': report_id,
+                'worker': worker_email
+            })
+            return jsonify({'message': 'Report assigned successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to assign report'}), 500
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     c.execute('''UPDATE reports SET assigned_worker = ?, status = 'assigned', updated_at = ?
                  WHERE id = ?''',
-              (worker_email, datetime.now().isoformat(), report_id))
+              (worker_email, now, report_id))
     conn.commit()
     conn.close()
     
@@ -1951,16 +2077,35 @@ def assign_report(report_id):
     
     return jsonify({'message': 'Report assigned successfully'}), 200
 
-@app.route('/api/reports/<int:report_id>/status', methods=['PUT'])
+@app.route('/api/reports/<report_id>/status', methods=['PUT'])
 @require_auth(['officer', 'worker'])
 def update_report_status(report_id):
     """Update report status"""
     data = request.get_json()
     status = data.get('status')
     
-    if status not in ['pending', 'assigned', 'in_progress', 'completed', 'rejected']:
+    valid_statuses = ['new', 'pending', 'assigned', 'in_progress', 'done', 'completed', 'resolved', 'rejected']
+    if status not in valid_statuses:
         return jsonify({'error': 'Invalid status'}), 400
     
+    now = datetime.now().isoformat()
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        success = fb_update_report(report_id, {
+            'status': status,
+            'updated_at': now
+        })
+        if success:
+            fb_log_audit('REPORT_STATUS_UPDATED', request.current_user['email'], {
+                'report_id': report_id,
+                'status': status
+            })
+            return jsonify({'message': 'Status updated successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to update status'}), 500
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE reports SET status = ?, updated_at = ? WHERE id = ?',
@@ -1978,6 +2123,91 @@ def update_report_status(report_id):
 # ---------------------------------------------------------
 # Worker Routes
 # ---------------------------------------------------------
+@app.route('/api/workers', methods=['GET'])
+@require_auth(['officer'])
+def get_workers():
+    """Get all workers (officer only)"""
+    # Use Firebase if available
+    if USE_FIREBASE:
+        workers = fb_get_workers()
+        if workers:
+            return jsonify({'workers': workers}), 200
+    
+    # Fallback to SQLite or return demo workers if none found
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM users WHERE role = ?', ('worker',))
+    rows = c.fetchall()
+    conn.close()
+    
+    if rows:
+        workers = []
+        for row in rows:
+            data = dict(row)
+            workers.append({
+                'id': data.get('id'),
+                'name': data.get('name', data.get('email', 'Unknown')),
+                'email': data.get('email'),
+                'status': data.get('status', 'Available'),
+                'zone': data.get('zone', 'Zone 1'),
+                'active_jobs': data.get('active_jobs', 0)
+            })
+        return jsonify({'workers': workers}), 200
+    
+    # Return demo workers if none exist
+    return jsonify({
+        'workers': [
+            {'id': '1', 'name': 'Ramesh K', 'email': 'ramesh@worker.com', 'status': 'Available', 'zone': 'Zone 1', 'active_jobs': 0},
+            {'id': '2', 'name': 'Suresh M', 'email': 'suresh@worker.com', 'status': 'Busy', 'zone': 'Zone 2', 'active_jobs': 2},
+            {'id': '3', 'name': 'Abdul R', 'email': 'abdul@worker.com', 'status': 'Available', 'zone': 'Zone 3', 'active_jobs': 0},
+            {'id': '4', 'name': 'John D', 'email': 'john@worker.com', 'status': 'Available', 'zone': 'Zone 4', 'active_jobs': 1}
+        ],
+        'demo': True
+    }), 200
+
+@app.route('/api/workers', methods=['POST'])
+@require_auth(['officer'])
+def create_worker():
+    """Create a new worker (officer only)"""
+    data = request.get_json()
+    
+    required_fields = ['name', 'email']
+    if not all(field in data for field in required_fields):
+        return jsonify({'error': 'Name and email are required'}), 400
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        worker_id = fb_create_worker({
+            'name': data['name'],
+            'email': data['email'],
+            'password': data.get('password', 'worker123'),
+            'zone': data.get('zone', 'Zone 1')
+        })
+        if worker_id:
+            fb_log_audit('WORKER_CREATED', request.current_user['email'], {'worker_id': worker_id})
+            return jsonify({'message': 'Worker created successfully', 'worker_id': worker_id}), 201
+        else:
+            return jsonify({'error': 'Failed to create worker'}), 500
+    
+    # Fallback to SQLite
+    conn = get_db()
+    c = conn.cursor()
+    password_hash = hashlib.sha256(data.get('password', 'worker123').encode()).hexdigest()
+    
+    try:
+        c.execute('''INSERT INTO users (email, name, password_hash, role, status, zone, active_jobs, created_at)
+                     VALUES (?, ?, ?, 'worker', 'Available', ?, 0, ?)''',
+                  (data['email'], data['name'], password_hash, data.get('zone', 'Zone 1'), datetime.now().isoformat()))
+        conn.commit()
+        worker_id = c.lastrowid
+        conn.close()
+        
+        log_audit('WORKER_CREATED', request.current_user['email'], {'worker_id': worker_id})
+        return jsonify({'message': 'Worker created successfully', 'worker_id': worker_id}), 201
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({'error': 'Worker with this email already exists'}), 400
+
 @app.route('/api/workers/tasks', methods=['GET'])
 @require_auth(['worker'])
 def get_worker_tasks():

@@ -279,6 +279,52 @@ class TarFixerAPI {
         }
     }
 
+    async getWorkers() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/workers`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch workers');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Get workers error:', error);
+            throw error;
+        }
+    }
+
+    async createWorker(name, email, password = 'worker123', zone = 'Zone 1') {
+        try {
+            const response = await fetch(`${API_BASE_URL}/workers`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, password, zone })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to create worker');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Create worker error:', error);
+            throw error;
+        }
+    }
+
     async assignReport(reportId, workerEmail) {
         try {
             const response = await fetch(`${API_BASE_URL}/reports/${reportId}/assign`, {
