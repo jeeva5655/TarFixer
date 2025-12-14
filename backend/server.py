@@ -279,21 +279,29 @@ def fb_get_reports(status=None, user_email=None):
         return []
     try:
         reports_ref = db.collection('reports')
-        query = reports_ref
-        if status and status != 'all':
-            query = query.where('status', '==', status)
-        if user_email:
-            query = query.where('user_email', '==', user_email)
         
-        docs = query.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+        # Simple query without ordering (ordering requires composite index)
+        docs = reports_ref.stream()
         reports = []
         for doc in docs:
             data = doc.to_dict()
             data['id'] = doc.id
+            
+            # Apply filters manually
+            if status and status != 'all' and data.get('status') != status:
+                continue
+            if user_email and data.get('user_email') != user_email:
+                continue
+                
             reports.append(data)
+        
+        # Sort by created_at descending (newest first)
+        reports.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         return reports
     except Exception as e:
-        print(f"Firebase error: {e}")
+        print(f"Firebase error in fb_get_reports: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def fb_get_report_by_id(report_id):
