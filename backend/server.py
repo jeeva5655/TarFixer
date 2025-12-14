@@ -1779,68 +1779,88 @@ def detect():
 @require_auth()
 def create_report():
     """Submit a road damage report"""
-    data = request.get_json()
-    
-    required_fields = ['location', 'latitude', 'longitude', 'damage_percentage', 'severity']
-    if not all(field in data for field in required_fields):
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    user_email = request.current_user['email']
-    now = datetime.now().isoformat()
-    
-    report_data = {
-        'user_email': user_email,
-        'location': data['location'],
-        'latitude': data['latitude'],
-        'longitude': data['longitude'],
-        'damage_percentage': data['damage_percentage'],
-        'severity': data['severity'],
-        'damage_type': data.get('damage_type', 'Road Damage'),
-        'detection_count': data.get('detection_count', 0),
-        'description': data.get('description', ''),
-        'annotated_image': data.get('annotated_image', ''),
-        'original_image': data.get('original_image', ''),
-        'status': 'new',
-        'assigned_worker': None,
-        'created_at': now,
-        'updated_at': now
-    }
-    
-    # Use Firebase if available
-    if USE_FIREBASE:
-        report_id = fb_create_report(report_data)
-        if report_id:
-            fb_log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
-            return jsonify({
-                'message': 'Report submitted successfully',
-                'report_id': report_id
-            }), 201
-        else:
-            return jsonify({'error': 'Failed to create report'}), 500
-    
-    # Fallback to SQLite
-    conn = get_db()
-    c = conn.cursor()
-    
-    c.execute('''INSERT INTO reports 
-                 (user_email, location, latitude, longitude, damage_percentage, severity, 
-                  detection_count, description, annotated_image, original_image, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-              (user_email, data['location'], data['latitude'], data['longitude'],
-               data['damage_percentage'], data['severity'], data.get('detection_count', 0),
-               data.get('description', ''), data.get('annotated_image', ''), 
-               data.get('original_image', ''), now, now))
-    
-    report_id = c.lastrowid
-    conn.commit()
-    conn.close()
-    
-    log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
-    
-    return jsonify({
-        'message': 'Report submitted successfully',
-        'report_id': report_id
-    }), 201
+    try:
+        data = request.get_json()
+        
+        required_fields = ['location', 'latitude', 'longitude', 'damage_percentage', 'severity']
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        user_email = request.current_user['email']
+        now = datetime.now().isoformat()
+        
+        # Don't store huge base64 images in Firebase (limit size)
+        annotated_img = data.get('annotated_image', '')
+        original_img = data.get('original_image', '')
+        
+        # Limit image size to prevent Firebase errors (max ~1MB base64)
+        if len(annotated_img) > 1000000:
+            annotated_img = annotated_img[:1000000]
+        if len(original_img) > 1000000:
+            original_img = ''  # Skip original if too large
+        
+        report_data = {
+            'user_email': user_email,
+            'location': data['location'],
+            'latitude': float(data['latitude']) if data['latitude'] else 0,
+            'longitude': float(data['longitude']) if data['longitude'] else 0,
+            'damage_percentage': float(data['damage_percentage']) if data['damage_percentage'] else 0,
+            'severity': str(data['severity']),
+            'damage_type': data.get('damage_type', 'Road Damage'),
+            'detection_count': int(data.get('detection_count', 0)),
+            'description': data.get('description', ''),
+            'annotated_image': annotated_img,
+            'original_image': original_img,
+            'status': 'new',
+            'assigned_worker': None,
+            'created_at': now,
+            'updated_at': now
+        }
+        
+        print(f"📝 Creating report for {user_email}, Firebase enabled: {USE_FIREBASE}")
+        
+        # Use Firebase if available
+        if USE_FIREBASE:
+            report_id = fb_create_report(report_data)
+            if report_id:
+                fb_log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
+                return jsonify({
+                    'message': 'Report submitted successfully',
+                    'report_id': report_id
+                }), 201
+            else:
+                print("❌ Firebase report creation returned None")
+                return jsonify({'error': 'Failed to create report in Firebase'}), 500
+        
+        # Fallback to SQLite
+        conn = get_db()
+        c = conn.cursor()
+        
+        c.execute('''INSERT INTO reports 
+                     (user_email, location, latitude, longitude, damage_percentage, severity, 
+                      detection_count, description, annotated_image, original_image, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (user_email, report_data['location'], report_data['latitude'], report_data['longitude'],
+                   report_data['damage_percentage'], report_data['severity'], report_data['detection_count'],
+                   report_data['description'], report_data['annotated_image'], 
+                   report_data['original_image'], now, now))
+        
+        report_id = c.lastrowid
+        conn.commit()
+        conn.close()
+        
+        log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
+        
+        return jsonify({
+            'message': 'Report submitted successfully',
+            'report_id': report_id
+        }), 201
+        
+    except Exception as e:
+        print(f"❌ Error in create_report: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to create report: {str(e)}'}), 500
 
 @app.route('/api/reports', methods=['GET'])
 @require_auth(['officer', 'worker'])
