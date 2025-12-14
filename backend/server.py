@@ -25,6 +25,28 @@ except Exception:
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 
+# Firebase Admin SDK
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# Initialize Firebase
+db = None
+USE_FIREBASE = False
+try:
+    firebase_creds_json = os.environ.get('FIREBASE_CREDENTIALS')
+    if firebase_creds_json:
+        creds_dict = json.loads(firebase_creds_json)
+        cred = credentials.Certificate(creds_dict)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        USE_FIREBASE = True
+        print("🔥 Firebase Firestore initialized successfully!")
+    else:
+        print("⚠️ FIREBASE_CREDENTIALS not found, using SQLite fallback")
+except Exception as e:
+    print(f"⚠️ Firebase initialization failed: {e}, using SQLite fallback")
+    USE_FIREBASE = False
+
 # Only import heavy ML libraries if NOT on Render
 YOLO = None
 torch = None
@@ -129,6 +151,195 @@ else:
             print(f"⚠️ YOLO Model not found at {model_path} or YOLO library missing")
     except Exception as e:
         print(f"❌ Failed to load YOLO model: {e}")
+
+# ---------------------------------------------------------
+# Firebase Firestore Helper Functions
+# ---------------------------------------------------------
+def fb_get_user_by_email(email):
+    """Get user from Firebase by email"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        users_ref = db.collection('users')
+        query = users_ref.where('email', '==', email).limit(1)
+        docs = query.stream()
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            return data
+        return None
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_create_user(email, password_hash, user_type, name):
+    """Create user in Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        users_ref = db.collection('users')
+        doc_ref = users_ref.add({
+            'email': email,
+            'password_hash': password_hash,
+            'user_type': user_type,
+            'name': name,
+            'created_at': datetime.now().isoformat(),
+            'last_login': None,
+            'google_id': None,
+            'approved': 1
+        })
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_update_user(email, updates):
+    """Update user in Firebase"""
+    if not USE_FIREBASE:
+        return False
+    try:
+        users_ref = db.collection('users')
+        query = users_ref.where('email', '==', email).limit(1)
+        docs = list(query.stream())
+        if docs:
+            docs[0].reference.update(updates)
+            return True
+        return False
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return False
+
+def fb_create_session(token, user_id, email, user_type, expires_at):
+    """Create session in Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        sessions_ref = db.collection('sessions')
+        sessions_ref.add({
+            'token': token,
+            'user_id': user_id,
+            'email': email,
+            'user_type': user_type,
+            'created_at': datetime.now().isoformat(),
+            'expires_at': expires_at.isoformat()
+        })
+        return token
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_get_session(token):
+    """Get session from Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        sessions_ref = db.collection('sessions')
+        query = sessions_ref.where('token', '==', token).limit(1)
+        docs = query.stream()
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            return data
+        return None
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_delete_session(token):
+    """Delete session from Firebase"""
+    if not USE_FIREBASE:
+        return False
+    try:
+        sessions_ref = db.collection('sessions')
+        query = sessions_ref.where('token', '==', token).limit(1)
+        docs = list(query.stream())
+        if docs:
+            docs[0].reference.delete()
+            return True
+        return False
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return False
+
+def fb_create_report(report_data):
+    """Create report in Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        reports_ref = db.collection('reports')
+        doc_ref = reports_ref.add(report_data)
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_get_reports(status=None, user_email=None):
+    """Get reports from Firebase"""
+    if not USE_FIREBASE:
+        return []
+    try:
+        reports_ref = db.collection('reports')
+        query = reports_ref
+        if status and status != 'all':
+            query = query.where('status', '==', status)
+        if user_email:
+            query = query.where('user_email', '==', user_email)
+        
+        docs = query.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+        reports = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            reports.append(data)
+        return reports
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return []
+
+def fb_get_report_by_id(report_id):
+    """Get single report from Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        doc = db.collection('reports').document(report_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            return data
+        return None
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return None
+
+def fb_update_report(report_id, updates):
+    """Update report in Firebase"""
+    if not USE_FIREBASE:
+        return False
+    try:
+        db.collection('reports').document(report_id).update(updates)
+        return True
+    except Exception as e:
+        print(f"Firebase error: {e}")
+        return False
+
+def fb_log_audit(event_type, email, details=None):
+    """Log audit event to Firebase"""
+    if not USE_FIREBASE:
+        return
+    try:
+        db.collection('audit_log').add({
+            'event_type': event_type,
+            'email': email,
+            'details': details or {},
+            'timestamp': datetime.now().isoformat(),
+            'ip_address': request.remote_addr if request else None
+        })
+    except Exception as e:
+        print(f"Firebase audit log error: {e}")
+
+# ---------------------------------------------------------
+# SQLite Database Functions (Fallback)
+# ---------------------------------------------------------
 def get_db():
     """Get database connection"""
     conn = sqlite3.connect(DATABASE)
@@ -516,6 +727,25 @@ def require_auth(user_types=None):
             if not token:
                 return jsonify({'error': 'No token provided'}), 401
             
+            # Use Firebase if available
+            if USE_FIREBASE:
+                session_data = fb_get_session(token)
+                if not session_data:
+                    return jsonify({'error': 'Invalid or expired token'}), 401
+                
+                # Check expiration
+                expires_at = datetime.fromisoformat(session_data['expires_at'])
+                if datetime.now() > expires_at:
+                    fb_delete_session(token)
+                    return jsonify({'error': 'Token expired'}), 401
+                
+                if user_types and session_data['user_type'] not in user_types:
+                    return jsonify({'error': 'Insufficient permissions'}), 403
+                
+                request.current_user = session_data
+                return f(*args, **kwargs)
+            
+            # Fallback to SQLite
             conn = get_db()
             c = conn.cursor()
             c.execute('''SELECT * FROM sessions WHERE token = ? AND datetime(expires_at) > datetime('now')''', (token,))
@@ -577,6 +807,30 @@ def signup():
     elif '@worker.com' in email:
         user_type = 'worker'
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        # Check if user exists in Firebase
+        existing_user = fb_get_user_by_email(email)
+        if existing_user:
+            return jsonify({'error': 'Account already exists'}), 400
+        
+        # Create user in Firebase
+        password_hash = hash_password(password, email)
+        fallback_name = email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+        name = preferred_name or fallback_name
+        
+        user_id = fb_create_user(email, password_hash, user_type, name)
+        if user_id:
+            fb_log_audit('SIGNUP_SUCCESS', email, {'user_type': user_type})
+            return jsonify({
+                'message': 'Account created successfully',
+                'email': email,
+                'user_type': user_type
+            }), 201
+        else:
+            return jsonify({'error': 'Failed to create account'}), 500
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     whitelist_entry = None
@@ -639,6 +893,37 @@ def login():
     if not email or not password:
         return jsonify({'error': 'Email and password required'}), 400
     
+    password_hash = hash_password(password, email)
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        user = fb_get_user_by_email(email)
+        
+        if not user:
+            fb_log_audit('LOGIN_FAILED', email, {'reason': 'account_not_found'})
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        if user.get('password_hash') != password_hash:
+            fb_log_audit('LOGIN_FAILED', email, {'reason': 'incorrect_password'})
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        # Create session token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(days=30)
+        
+        fb_create_session(token, user['id'], email, user['user_type'], expires_at)
+        fb_update_user(email, {'last_login': datetime.now().isoformat()})
+        fb_log_audit('LOGIN_SUCCESS', email, {'user_type': user['user_type']})
+        
+        return jsonify({
+            'token': token,
+            'email': email,
+            'user_type': user['user_type'],
+            'name': user.get('name', email.split('@')[0]),
+            'expires_at': expires_at.isoformat()
+        }), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     
@@ -652,7 +937,6 @@ def login():
         return jsonify({'error': 'Invalid credentials'}), 401
     
     # Verify password
-    password_hash = hash_password(password, email)
     if user['password_hash'] != password_hash:
         conn.close()
         log_audit('LOGIN_FAILED', email, {'reason': 'incorrect_password'})
@@ -1454,6 +1738,40 @@ def create_report():
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
     
+    user_email = request.current_user['email']
+    now = datetime.now().isoformat()
+    
+    report_data = {
+        'user_email': user_email,
+        'location': data['location'],
+        'latitude': data['latitude'],
+        'longitude': data['longitude'],
+        'damage_percentage': data['damage_percentage'],
+        'severity': data['severity'],
+        'damage_type': data.get('damage_type', 'Road Damage'),
+        'detection_count': data.get('detection_count', 0),
+        'description': data.get('description', ''),
+        'annotated_image': data.get('annotated_image', ''),
+        'original_image': data.get('original_image', ''),
+        'status': 'new',
+        'assigned_worker': None,
+        'created_at': now,
+        'updated_at': now
+    }
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        report_id = fb_create_report(report_data)
+        if report_id:
+            fb_log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
+            return jsonify({
+                'message': 'Report submitted successfully',
+                'report_id': report_id
+            }), 201
+        else:
+            return jsonify({'error': 'Failed to create report'}), 500
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     
@@ -1461,16 +1779,16 @@ def create_report():
                  (user_email, location, latitude, longitude, damage_percentage, severity, 
                   detection_count, description, annotated_image, original_image, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-              (request.current_user['email'], data['location'], data['latitude'], data['longitude'],
+              (user_email, data['location'], data['latitude'], data['longitude'],
                data['damage_percentage'], data['severity'], data.get('detection_count', 0),
                data.get('description', ''), data.get('annotated_image', ''), 
-               data.get('original_image', ''), datetime.now().isoformat(), datetime.now().isoformat()))
+               data.get('original_image', ''), now, now))
     
     report_id = c.lastrowid
     conn.commit()
     conn.close()
     
-    log_audit('REPORT_CREATED', request.current_user['email'], {'report_id': report_id})
+    log_audit('REPORT_CREATED', user_email, {'report_id': report_id})
     
     return jsonify({
         'message': 'Report submitted successfully',
@@ -1483,6 +1801,30 @@ def get_reports():
     """Get all reports (for officers/workers)"""
     status_filter = request.args.get('status', None)
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        reports = fb_get_reports(status=status_filter)
+        # Transform for frontend compatibility
+        transformed = []
+        for r in reports:
+            transformed.append({
+                'id': r.get('id'),
+                'user_email': r.get('user_email'),
+                'latitude': r.get('latitude'),
+                'longitude': r.get('longitude'),
+                'damage_percentage': r.get('damage_percentage'),
+                'confidence': r.get('damage_percentage'),
+                'damage_type': r.get('damage_type', 'Road Damage'),
+                'severity': r.get('severity'),
+                'status': r.get('status', 'new'),
+                'assigned_worker': r.get('assigned_worker'),
+                'image_data': r.get('annotated_image', r.get('original_image', '')),
+                'created_at': r.get('created_at'),
+                'updated_at': r.get('updated_at')
+            })
+        return jsonify({'reports': transformed}), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     
@@ -1494,16 +1836,24 @@ def get_reports():
     reports = [dict(row) for row in c.fetchall()]
     conn.close()
     
-    return jsonify(reports), 200
+    return jsonify({'reports': reports}), 200
 
 @app.route('/api/reports/my', methods=['GET'])
 @require_auth()
 def get_my_reports():
     """Get current user's reports"""
+    user_email = request.current_user['email']
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        reports = fb_get_reports(user_email=user_email)
+        return jsonify(reports), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT * FROM reports WHERE user_email = ? ORDER BY created_at DESC', 
-              (request.current_user['email'],))
+              (user_email,))
     reports = [dict(row) for row in c.fetchall()]
     conn.close()
     
