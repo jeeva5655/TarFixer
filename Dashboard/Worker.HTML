@@ -739,7 +739,7 @@
     activeCameraStream = null;
   }
 
-  // Capture final photo and verify GPS before upload
+  // Capture final photo and verify GPS + YOLO before upload
   async function captureFinalPhoto() {
     const video = document.getElementById('cameraView');
     if (!video || !video.srcObject) { alert('Camera not ready.'); return; }
@@ -755,13 +755,18 @@
       alert('GPS required to verify location. Enable location and try again.');
       return;
     }
+    
+    // Show analyzing message
+    const camControls = document.querySelector('.cam-controls');
+    const originalControls = camControls.innerHTML;
+    camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🔍 Analyzing repaired road...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Please wait while AI verifies the repair</div></div>';
 
     // Get current GPS position
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const currentLat = pos.coords.latitude;
       const currentLng = pos.coords.longitude;
       
-      // Get original task location
+      // Get original task location and damage info
       const taskCard = document.getElementById(`task-${currentFinishingTask}`);
       const originalLat = parseFloat(taskCard?.dataset.lat || 0);
       const originalLng = parseFloat(taskCard?.dataset.lng || 0);
@@ -773,14 +778,66 @@
       const MAX_DISTANCE = 500;
       
       if (distance > MAX_DISTANCE) {
+        camControls.innerHTML = originalControls;
         closeCamera();
         alert(`❌ Location verification failed!\n\nYou are ${distance.toFixed(0)}m away from the task location.\nMaximum allowed distance: ${MAX_DISTANCE}m\n\nPlease go to the correct location and try again.`);
         return;
       }
       
-      // GPS verified - proceed with upload
+      // GPS verified - now verify with YOLO that damage is repaired
       try {
         const token = getToken();
+        
+        // First, analyze the after image with YOLO
+        camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🤖 Running YOLO damage detection...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Verifying repair quality</div></div>';
+        
+        // Convert dataUrl to blob for YOLO API
+        const blob = await fetch(dataUrl).then(r => r.blob());
+        const formData = new FormData();
+        formData.append('image', blob, 'after_image.jpg');
+        
+        const yoloResponse = await fetch(`${API_BASE_URL}/detect`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        let afterDamagePercentage = 0;
+        let yoloVerified = false;
+        let yoloMessage = '';
+        
+        if (yoloResponse.ok) {
+          const yoloData = await yoloResponse.json();
+          afterDamagePercentage = yoloData.damage_percentage || 0;
+          
+          // Repair is verified if damage is below 30%
+          const MAX_ALLOWED_DAMAGE = 30;
+          
+          if (afterDamagePercentage < MAX_ALLOWED_DAMAGE) {
+            yoloVerified = true;
+            yoloMessage = `✅ Repair verified! Remaining damage: ${afterDamagePercentage.toFixed(1)}%`;
+          } else {
+            yoloVerified = false;
+            yoloMessage = `❌ Repair incomplete! Detected damage: ${afterDamagePercentage.toFixed(1)}%\nDamage must be below ${MAX_ALLOWED_DAMAGE}% to mark as complete.`;
+          }
+        } else {
+          // YOLO failed - allow submission but flag it
+          yoloVerified = true;
+          yoloMessage = '⚠️ Could not verify with AI (service unavailable). Submitting for manual review.';
+          afterDamagePercentage = -1; // Flag as unverified
+        }
+        
+        if (!yoloVerified) {
+          camControls.innerHTML = originalControls;
+          closeCamera();
+          alert(yoloMessage + '\n\nPlease complete the repair work and try again.');
+          return;
+        }
+        
+        // YOLO verified - proceed with upload
+        camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">📤 Uploading completion...</div></div>';
         
         // Update report status to 'done' with the after image
         const response = await fetch(`${API_BASE_URL}/reports/${currentFinishingTask}/complete`, {
@@ -793,14 +850,18 @@
             after_image: dataUrl,
             completion_lat: currentLat,
             completion_lng: currentLng,
-            completion_time: new Date().toISOString()
+            completion_time: new Date().toISOString(),
+            after_damage_percentage: afterDamagePercentage
           })
         });
         
         closeCamera();
         
         if (response.ok) {
-          alert(`✅ Task completed successfully!\n\nLocation verified: ${distance.toFixed(0)}m from task.\nPhoto uploaded for officer review.`);
+          const damageMsg = afterDamagePercentage >= 0 
+            ? `AI Verification: ${afterDamagePercentage.toFixed(1)}% damage remaining` 
+            : 'Pending manual review';
+          alert(`✅ Task completed successfully!\n\n📍 Location verified: ${distance.toFixed(0)}m from task.\n🤖 ${damageMsg}\n📷 Photo uploaded for officer review.`);
           
           // Add to history
           const historyTab = document.getElementById('historyTab');

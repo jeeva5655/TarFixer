@@ -1992,7 +1992,12 @@ def get_reports():
                 'assigned_worker': r.get('assigned_worker'),
                 'image_data': r.get('annotated_image', r.get('original_image', '')),
                 'created_at': r.get('created_at'),
-                'updated_at': r.get('updated_at')
+                'updated_at': r.get('updated_at'),
+                # Completion data from worker
+                'after_image': r.get('after_image'),
+                'after_damage_percentage': r.get('after_damage_percentage'),
+                'completed_by': r.get('completed_by'),
+                'completed_at': r.get('completed_at')
             })
         return jsonify({'reports': transformed}), 200
     
@@ -2130,6 +2135,7 @@ def complete_report(report_id):
     completion_lat = data.get('completion_lat')
     completion_lng = data.get('completion_lng')
     completion_time = data.get('completion_time', datetime.now().isoformat())
+    after_damage_percentage = data.get('after_damage_percentage', -1)  # -1 means unverified
     
     if not after_image:
         return jsonify({'error': 'After image is required'}), 400
@@ -2211,6 +2217,7 @@ def complete_report(report_id):
             'completion_lng': completion_lng,
             'completed_at': completion_time,
             'completed_by': request.current_user['email'],
+            'after_damage_percentage': after_damage_percentage,
             'status': 'done',
             'updated_at': now
         })

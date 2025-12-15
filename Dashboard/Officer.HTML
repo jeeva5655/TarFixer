@@ -304,6 +304,25 @@
       <img id="imgAfter" class="detail-img" alt="Repaired image" style="display:none">
     </div>
 
+    <!-- AI Verification Info (shown for done/resolved reports) -->
+    <div id="verificationInfo" style="display:none; margin-top:12px; padding:12px; background:var(--glass); border-radius:8px; border:1px solid var(--border);">
+      <div style="font-weight:700; font-size:14px; margin-bottom:8px;">🤖 AI Verification</div>
+      <div style="display:flex; gap:20px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size:12px; color:var(--muted);">Before (User Report)</div>
+          <div id="dmgBefore" style="font-size:18px; font-weight:800; color:#ff3b3b;">—</div>
+        </div>
+        <div>
+          <div style="font-size:12px; color:var(--muted);">After (Worker Submission)</div>
+          <div id="dmgAfter" style="font-size:18px; font-weight:800; color:#00e6a8;">—</div>
+        </div>
+        <div>
+          <div style="font-size:12px; color:var(--muted);">Completed By</div>
+          <div id="completedBy" style="font-size:14px; font-weight:600;">—</div>
+        </div>
+      </div>
+    </div>
+
     <div style="margin-top:8px;">
       <div id="mapSmall" class="map-small"></div>
     </div>
@@ -424,6 +443,16 @@ async function fetchReports() {
           }
         }
         
+        // Handle after_image
+        let afterImageUrl = null;
+        if (r.after_image) {
+          if (r.after_image.startsWith('data:image')) {
+            afterImageUrl = r.after_image;
+          } else {
+            afterImageUrl = `data:image/jpeg;base64,${r.after_image}`;
+          }
+        }
+        
         return {
           id: `#${r.id}`,
           rawId: r.id,
@@ -433,10 +462,15 @@ async function fetchReports() {
           severity: Math.round(r.confidence || 0),
           status: r.status || 'new',
           image: imageUrl,
+          afterImage: afterImageUrl,
           assignedTo: r.assigned_worker || r.assigned_to || '',
           damage_type: r.damage_type || 'Unknown',
           timestamp: r.created_at || new Date().toISOString(),
-          user_email: r.user_email || 'Anonymous'
+          user_email: r.user_email || 'Anonymous',
+          // Completion data
+          after_damage_percentage: r.after_damage_percentage,
+          completed_by: r.completed_by,
+          completed_at: r.completed_at
         };
       });
       console.log('Parsed reports:', reports);
@@ -729,6 +763,27 @@ function openDetails(id) {
   } else {
     // Use a data URI placeholder instead of external service
     imgAfterEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%23222' width='600' height='400'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EWorker Has Not Uploaded%3C/text%3E%3C/svg%3E";
+  }
+
+  // Show AI verification info for done/resolved reports
+  const verificationInfo = document.getElementById('verificationInfo');
+  if ((r.status === 'done' || r.status === 'resolved') && r.afterImage) {
+    verificationInfo.style.display = 'block';
+    document.getElementById('dmgBefore').textContent = `${r.severity}% damage`;
+    
+    // Check if after damage is available (-1 means unverified)
+    const afterDmg = r.after_damage_percentage;
+    if (afterDmg !== undefined && afterDmg !== null && afterDmg >= 0) {
+      document.getElementById('dmgAfter').textContent = `${afterDmg.toFixed(1)}% damage`;
+      document.getElementById('dmgAfter').style.color = afterDmg < 30 ? '#00e6a8' : '#ff3b3b';
+    } else {
+      document.getElementById('dmgAfter').textContent = 'Pending manual review';
+      document.getElementById('dmgAfter').style.color = '#ffbf00';
+    }
+    
+    document.getElementById('completedBy').textContent = r.completed_by || r.assignedTo || '—';
+  } else {
+    verificationInfo.style.display = 'none';
   }
 
   // show/hide buttons based on status
