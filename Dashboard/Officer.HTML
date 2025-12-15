@@ -13,6 +13,8 @@
 
   <!-- API Client -->
   <script src="../api-client.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     :root {
@@ -455,6 +457,47 @@
       border-radius: 10px;
     }
 
+    /* ANALYTICS */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .chart-card {
+      background: var(--card);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .nav-btn {
+      width: 100%;
+      padding: 10px;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 8px;
+      font-weight: 600;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      transition: 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: var(--hover);
+      color: var(--text-main);
+    }
+
+    .nav-btn.active {
+      background: rgba(0, 230, 168, 0.1);
+      color: var(--accent);
+    }
+
     /* REPORT CARD */
     .report {
       padding: 10px;
@@ -675,6 +718,16 @@
       </div>
 
       <div class="stats">
+        <!-- Navigation -->
+        <button class="nav-btn active" onclick="switchView('reports')" id="navReports">
+          <i class="fa-solid fa-list"></i> Reports
+        </button>
+        <button class="nav-btn" onclick="switchView('analytics')" id="navAnalytics">
+          <i class="fa-solid fa-chart-pie"></i> Analytics
+        </button>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); width: 100%; margin: 10px 0;">
+
         <div class="stat">
           <div data-key="statNew">New</div>
           <div id="stat-new">0</div>
@@ -728,7 +781,7 @@
         </div>
       </div>
 
-      <div class="content">
+      <div class="content" id="reportsView">
         <div class="reports-list">
           <h3><span data-key="incoming">Reports</span> <span style="font-size:12px;color:var(--muted)"
               id="listCount">0</span></h3>
@@ -1419,9 +1472,133 @@
 
     async function handleSignOut() {
       if (confirm('Are you sure you want to sign out?')) {
-        await API.logout();
+        localStorage.removeItem('tarfixer_auth_token');
         window.location.href = '../Login/Choose_login.html';
       }
+    }
+
+    // ANALYTICS LOGIC
+    let charts = {};
+
+    function switchView(view) {
+      document.getElementById('reportsView').style.display = view === 'reports' ? 'flex' : 'none';
+      document.getElementById('analyticsView').style.display = view === 'analytics' ? 'flex' : 'none';
+
+      document.getElementById('navReports').classList.toggle('active', view === 'reports');
+      document.getElementById('navAnalytics').classList.toggle('active', view === 'analytics');
+
+      if (view === 'analytics') {
+        loadAnalytics();
+      }
+    }
+
+    async function loadAnalytics() {
+      const token = localStorage.getItem('tarfixer_auth_token');
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (!data.counts) return;
+
+        renderCharts(data);
+      } catch (e) {
+        console.error("Failed to load analytics", e);
+      }
+    }
+
+    function renderCharts(data) {
+      const ctxStatus = document.getElementById('statusChart').getContext('2d');
+      const ctxSeverity = document.getElementById('severityChart').getContext('2d');
+      const ctxTrend = document.getElementById('trendChart').getContext('2d');
+
+      // Destroy old charts if exist
+      if (charts.status) charts.status.destroy();
+      if (charts.severity) charts.severity.destroy();
+      if (charts.trend) charts.trend.destroy();
+
+      const isDark = !document.body.classList.contains('light-theme');
+      const textColor = isDark ? '#e6f0f2' : '#1c1e21';
+
+      // 1. Status Chart (Bar)
+      charts.status = new Chart(ctxStatus, {
+        type: 'bar',
+        data: {
+          labels: ['New', 'Assigned', 'In Progress', 'Done', 'Resolved'],
+          datasets: [{
+            label: 'Reports',
+            data: [
+              data.counts.new,
+              data.counts.assigned,
+              data.counts.in_progress,
+              data.counts.done,
+              data.counts.resolved
+            ],
+            backgroundColor: ['#ffc107', '#3b82f6', '#3b82f6', '#ff4081', '#00e6a8']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, title: { display: false } },
+          scales: {
+            x: { ticks: { color: textColor } },
+            y: { ticks: { color: textColor }, beginAtZero: true }
+          }
+        }
+      });
+
+      // 2. Severity (Pie)
+      const severities = data.severity || {};
+      charts.severity = new Chart(ctxSeverity, {
+        type: 'doughnut',
+        data: {
+          labels: ['Low', 'Medium', 'High', 'Critical'],
+          datasets: [{
+            data: [
+              severities['Low'] || 0,
+              severities['Medium'] || 0,
+              severities['High'] || 0,
+              severities['Critical'] || 0
+            ],
+            backgroundColor: ['#00e6a8', '#ffc107', '#ff8c00', '#ff3b3b'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'right', labels: { color: textColor } } }
+        }
+      });
+
+      // 3. Trend (Line)
+      const trendLabels = data.weekly_reports.map(d => d.label);
+      const trendData = data.weekly_reports.map(d => d.count);
+
+      charts.trend = new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+          labels: trendLabels,
+          datasets: [{
+            label: 'New Reports',
+            data: trendData,
+            borderColor: '#00e6a8',
+            tension: 0.4,
+            fill: true,
+            backgroundColor: 'rgba(0, 230, 168, 0.1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { ticks: { color: textColor } },
+            y: { ticks: { color: textColor }, beginAtZero: true }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
     }
 
     function loadUserInfo() {

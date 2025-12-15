@@ -2937,6 +2937,133 @@ def reject_request(request_id):
         return jsonify({'error': 'Invalid ID format for SQLite'}), 400
 
 # ---------------------------------------------------------
+# Analytics / Stats Endpoints
+# ---------------------------------------------------------
+
+@app.route('/api/admin/stats', methods=['GET'])
+@require_auth(['officer'])
+def admin_stats():
+    """Get dashboard analytics for officers"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+
+        # 1. Status Counts
+        c.execute('SELECT status, COUNT(*) as count FROM reports GROUP BY status')
+        raw_counts = {row['status']: row['count'] for row in c.fetchall()}
+        
+        # Ensure all keys exist
+        counts = {
+            'new': raw_counts.get('new', 0) + raw_counts.get('pending', 0), # Handle legacy 'pending'
+            'assigned': raw_counts.get('assigned', 0),
+            'in_progress': raw_counts.get('in_progress', 0),
+            'done': raw_counts.get('done', 0),
+            'resolved': raw_counts.get('resolved', 0)
+        }
+
+        # 2. Severity Counts (Pie Chart)
+        c.execute('SELECT severity, COUNT(*) as count FROM reports WHERE severity IS NOT NULL GROUP BY severity')
+        severity = {row['severity']: row['count'] for row in c.fetchall()}
+
+        # 3. Weekly Activity (Last 7 Days) - Reports Created
+        seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+        # SQLite substr(created_at, 1, 10) extracts 'YYYY-MM-DD'
+        c.execute("""
+            SELECT substr(created_at, 1, 10) as day, COUNT(*) as count 
+            FROM reports 
+            WHERE created_at >= ? 
+            GROUP BY day
+            ORDER BY day
+        """, (seven_days_ago,))
+        weekly_data = {row['day']: row['count'] for row in c.fetchall()}
+        
+        # Fill missing days with 0
+        weekly_reports = []
+        for i in range(7):
+            d = (datetime.now() - timedelta(days=6-i))
+            day_str = d.strftime('%Y-%m-%d')
+            # Format label as 'Mon', 'Tue' etc for chart
+            label = d.strftime('%a') 
+            weekly_reports.append({
+                'date': day_str,
+                'label': label,
+                'count': weekly_data.get(day_str, 0)
+            })
+
+        conn.close()
+
+        return jsonify({
+            'counts': counts,
+            'severity': severity,
+            'weekly_reports': weekly_reports
+        }), 200
+    except Exception as e:
+        print(f"Admin Stats Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/worker/stats', methods=['GET'])
+@require_auth(['worker'])
+def worker_stats():
+    """Get dashboard analytics for workers"""
+    try:
+        email = request.current_user['email']
+        conn = get_db()
+        c = conn.cursor()
+
+        # 1. My Tasks Status
+        c.execute('''
+            SELECT status, COUNT(*) as count 
+            FROM reports 
+            WHERE assigned_worker = ? 
+            GROUP BY status
+        ''', (email,))
+        raw_counts = {row['status']: row['count'] for row in c.fetchall()}
+        
+        counts = {
+            'assigned': raw_counts.get('assigned', 0),
+            'in_progress': raw_counts.get('in_progress', 0),
+            'done': raw_counts.get('done', 0),    # Waiting verification
+            'resolved': raw_counts.get('resolved', 0) # Verified
+        }
+
+        # 2. My Weekly Completions (Last 7 Days)
+        seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+        
+        # Check 'completed_at' or 'updated_at' for done/resolved jobs
+        c.execute("""
+            SELECT substr(updated_at, 1, 10) as day, COUNT(*) as count 
+            FROM reports 
+            WHERE assigned_worker = ? 
+            AND (status = 'done' OR status = 'resolved')
+            AND updated_at >= ? 
+            GROUP BY day
+            ORDER BY day
+        """, (email, seven_days_ago))
+        
+        weekly_data = {row['day']: row['count'] for row in c.fetchall()}
+        
+        weekly_perf = []
+        for i in range(7):
+            d = (datetime.now() - timedelta(days=6-i))
+            day_str = d.strftime('%Y-%m-%d')
+            label = d.strftime('%a')
+            weekly_perf.append({
+                'date': day_str,
+                'label': label,
+                'count': weekly_data.get(day_str, 0)
+            })
+
+        conn.close()
+
+        return jsonify({
+            'counts': counts,
+            'weekly_performance': weekly_perf
+        }), 200
+    except Exception as e:
+        print(f"Worker Stats Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ---------------------------------------------------------
 # Setup Routes (for initializing demo data)
 # ---------------------------------------------------------
 @app.route('/api/setup/create-demo-workers', methods=['POST'])
