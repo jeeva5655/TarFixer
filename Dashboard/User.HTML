@@ -13,7 +13,7 @@
     if (TEST_MODE) {
       console.log('⚠️ TEST MODE ENABLED - Authentication bypassed');
     }
-    
+
     // Force clear old sessions when switching between local/online modes
     const APP_VERSION = 'v3-local';
     const currentVersion = localStorage.getItem('app_version');
@@ -37,141 +37,141 @@
      * TarFixer API Client - Embedded Version
      */
     const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? 'http://localhost:5000/api'
-        : 'https://tarfixer-backend.onrender.com/api';
+      ? 'http://localhost:5000/api'
+      : 'https://tarfixer-backend.onrender.com/api';
     console.log('🚀 TarFixer API Client Loaded - URL:', API_BASE_URL);
     const TOKEN_KEY = 'tarfixer_auth_token';
     const USER_KEY = 'tarfixer_user_data';
 
     class TarFixerAPI {
-        constructor() {
-            this.baseURL = API_BASE_URL;
-            this.token = localStorage.getItem(TOKEN_KEY);
-            this.user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-        }
+      constructor() {
+        this.baseURL = API_BASE_URL;
+        this.token = localStorage.getItem(TOKEN_KEY);
+        this.user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+      }
 
-        async login(email, password) {
-            try {
-                const response = await fetch(`${API_BASE_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Login failed');
-                this.token = data.token;
-                this.user = { email: data.email, name: data.name, userType: data.user_type, expiresAt: data.expires_at };
-                localStorage.setItem(TOKEN_KEY, this.token);
-                localStorage.setItem(USER_KEY, JSON.stringify(this.user));
-                return this.user;
-            } catch (error) {
-                console.error('Login error:', error);
-                throw error;
+      async login(email, password) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Login failed');
+          this.token = data.token;
+          this.user = { email: data.email, name: data.name, userType: data.user_type, expiresAt: data.expires_at };
+          localStorage.setItem(TOKEN_KEY, this.token);
+          localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+          return this.user;
+        } catch (error) {
+          console.error('Login error:', error);
+          throw error;
+        }
+      }
+
+      async logout() {
+        try {
+          if (this.token) {
+            await fetch(`${API_BASE_URL}/auth/logout`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          this.token = null;
+          this.user = null;
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+        }
+      }
+
+      isAuthenticated() { return !!this.token && !!this.user; }
+      getUserType() { return this.user?.userType || null; }
+      getUser() { return this.user; }
+
+      async detectDamage(imageFile) {
+        try {
+          const formData = new FormData();
+          formData.append('image', imageFile);
+
+          const isTestMode = window.location.search.includes('test=true') || (typeof TEST_MODE !== 'undefined' && TEST_MODE);
+          const headers = { 'Authorization': `Bearer ${this.token}` };
+          if (isTestMode) {
+            headers['X-Test-Mode'] = 'true';
+            console.log('⚠️ Test mode: bypassing auth');
+          }
+
+          console.log('📤 Sending image to:', API_BASE_URL + '/detect');
+          const response = await fetch(`${API_BASE_URL}/detect`, {
+            method: 'POST',
+            headers: headers,
+            body: formData
+          });
+
+          const data = await response.json();
+          console.log('📥 Response:', response.status, data);
+
+          if (!response.ok) {
+            if (response.status === 401 && !isTestMode) {
+              this.logout();
+              window.location.href = '../Login/Choose_login.html';
+              throw new Error('Session expired. Please login again.');
             }
+            throw new Error(data.error || 'Detection failed');
+          }
+          return data;
+        } catch (error) {
+          console.error('Detection error:', error);
+          throw error;
         }
+      }
 
-        async logout() {
-            try {
-                if (this.token) {
-                    await fetch(`${API_BASE_URL}/auth/logout`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${this.token}` }
-                    });
-                }
-            } catch (error) {
-                console.error('Logout error:', error);
-            } finally {
-                this.token = null;
-                this.user = null;
-                localStorage.removeItem(TOKEN_KEY);
-                localStorage.removeItem(USER_KEY);
-            }
+      async createReport(reportData) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/reports`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reportData)
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Report submission failed');
+          return data;
+        } catch (error) {
+          console.error('Report creation error:', error);
+          throw error;
         }
+      }
 
-        isAuthenticated() { return !!this.token && !!this.user; }
-        getUserType() { return this.user?.userType || null; }
-        getUser() { return this.user; }
-
-        async detectDamage(imageFile) {
-            try {
-                const formData = new FormData();
-                formData.append('image', imageFile);
-                
-                const isTestMode = window.location.search.includes('test=true') || (typeof TEST_MODE !== 'undefined' && TEST_MODE);
-                const headers = { 'Authorization': `Bearer ${this.token}` };
-                if (isTestMode) {
-                    headers['X-Test-Mode'] = 'true';
-                    console.log('⚠️ Test mode: bypassing auth');
-                }
-
-                console.log('📤 Sending image to:', API_BASE_URL + '/detect');
-                const response = await fetch(`${API_BASE_URL}/detect`, {
-                    method: 'POST',
-                    headers: headers,
-                    body: formData
-                });
-
-                const data = await response.json();
-                console.log('📥 Response:', response.status, data);
-
-                if (!response.ok) {
-                    if (response.status === 401 && !isTestMode) {
-                        this.logout();
-                        window.location.href = '../Login/Choose_login.html';
-                        throw new Error('Session expired. Please login again.');
-                    }
-                    throw new Error(data.error || 'Detection failed');
-                }
-                return data;
-            } catch (error) {
-                console.error('Detection error:', error);
-                throw error;
-            }
+      async getMyReports() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/reports/my`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${this.token}` }
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Failed to fetch reports');
+          return data;
+        } catch (error) {
+          console.error('Get my reports error:', error);
+          throw error;
         }
+      }
 
-        async createReport(reportData) {
-            try {
-                const response = await fetch(`${API_BASE_URL}/reports`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(reportData)
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Report submission failed');
-                return data;
-            } catch (error) {
-                console.error('Report creation error:', error);
-                throw error;
-            }
+      async checkHealth() {
+        try {
+          const response = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
+          return await response.json();
+        } catch (error) {
+          console.error('Health check error:', error);
+          return { status: 'error', error: error.message };
         }
-
-        async getMyReports() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/reports/my`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${this.token}` }
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Failed to fetch reports');
-                return data;
-            } catch (error) {
-                console.error('Get my reports error:', error);
-                throw error;
-            }
-        }
-
-        async checkHealth() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
-                return await response.json();
-            } catch (error) {
-                console.error('Health check error:', error);
-                return { status: 'error', error: error.message };
-            }
-        }
+      }
     }
 
     // Initialize global API instance
@@ -583,10 +583,11 @@
       }
     }
   </style>
-  
+
   <!-- Leaflet CSS and JS for maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 </head>
 
 <body>
@@ -639,10 +640,12 @@
       <div style="font-size:13px;font-weight:600;margin-bottom:8px;opacity:0.7;">📍 GPS Location (from image):</div>
       <div style="display:flex;gap:15px;flex-wrap:wrap;">
         <div><span data-key="lat">Latitude</span>: <span id="lat" style="font-weight:600;color:#00e6a8;">--</span></div>
-        <div><span data-key="long">Longitude</span>: <span id="lng" style="font-weight:600;color:#00e6a8;">--</span></div>
+        <div><span data-key="long">Longitude</span>: <span id="lng" style="font-weight:600;color:#00e6a8;">--</span>
+        </div>
       </div>
       <div id="error" style="margin-top:10px;font-size:13px;"></div>
-      <div id="locationPreview" style="margin-top:10px;height:150px;border-radius:8px;overflow:hidden;display:none;"></div>
+      <div id="locationPreview" style="margin-top:10px;height:150px;border-radius:8px;overflow:hidden;display:none;">
+      </div>
       <div id="locationAddress" style="margin-top:8px;font-size:12px;color:#00e6a8;"></div>
     </div>
   </div>
@@ -1067,53 +1070,53 @@
     function updateLocationPreview(lat, lng) {
       const previewDiv = document.getElementById('locationPreview');
       const addressDiv = document.getElementById('locationAddress');
-      
+
       if (!previewDiv) return;
-      
+
       // Show the preview container
       previewDiv.style.display = 'block';
-      
+
       // Remove old map if exists
       if (locationMap) {
         locationMap.remove();
         locationMap = null;
       }
-      
+
       // Create new map (read-only, no dragging)
-      locationMap = L.map(previewDiv, { 
-        attributionControl: false, 
+      locationMap = L.map(previewDiv, {
+        attributionControl: false,
         zoomControl: true,
         dragging: true,
         scrollWheelZoom: true
       }).setView([lat, lng], 17);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
-        maxZoom: 19 
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
       }).addTo(locationMap);
-      
+
       // Add fixed marker (not draggable)
       const marker = L.marker([lat, lng]).addTo(locationMap);
       marker.bindPopup('📍 Location from image').openPopup();
-      
+
       // Get address via reverse geocoding
       reverseGeocode(lat, lng);
-      
+
       // Fix map display
       setTimeout(() => locationMap.invalidateSize(), 100);
     }
-    
+
     async function reverseGeocode(lat, lng) {
       const addressDiv = document.getElementById('locationAddress');
       if (!addressDiv) return;
-      
+
       addressDiv.textContent = '🔍 Looking up address...';
-      
+
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
           { headers: { 'Accept-Language': 'en' } }
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           addressDiv.textContent = '📍 ' + (data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
@@ -1241,137 +1244,64 @@
     });
 
 
-    /* ---------- Extract GPS from EXIF ---------- */
+    /* ---------- Extract GPS from EXIF (using exif-js) ---------- */
     async function extractGPSFromImage(file) {
       return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const exif = getEXIFData(e.target.result);
+        EXIF.getData(file, function () {
+          const lat = EXIF.getTag(this, "GPSLatitude");
+          const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+          const lng = EXIF.getTag(this, "GPSLongitude");
+          const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-            if (exif && exif.GPSLatitude && exif.GPSLongitude) {
-              const lat = convertDMSToDD(
-                exif.GPSLatitude[0],
-                exif.GPSLatitude[1],
-                exif.GPSLatitude[2],
-                exif.GPSLatitudeRef
-              );
-              const lng = convertDMSToDD(
-                exif.GPSLongitude[0],
-                exif.GPSLongitude[1],
-                exif.GPSLongitude[2],
-                exif.GPSLongitudeRef
-              );
+          console.log("EXIF Data Found:", { lat, latRef, lng, lngRef });
 
-              latBox.textContent = lat.toFixed(6);
-              lngBox.textContent = lng.toFixed(6);
-              updateLocationPreview(lat, lng);
-              errorBox.textContent = '✅ GPS location extracted successfully! You can now analyze the damage.';
-              errorBox.style.color = '#00e6a8';
-              resolve({ lat, lng });
-            } else {
-              reject(new Error('No GPS data in EXIF'));
-            }
-          } catch (err) {
-            reject(err);
+          if (lat && latRef && lng && lngRef) {
+            // exif-js returns number arrays [deg, min, sec]
+            const latDD = convertDMSToDD(lat[0], lat[1], lat[2], latRef);
+            const lngDD = convertDMSToDD(lng[0], lng[1], lng[2], lngRef);
+
+            latBox.textContent = latDD.toFixed(6);
+            lngBox.textContent = lngDD.toFixed(6);
+            updateLocationPreview(latDD, lngDD);
+
+            errorBox.textContent = '✅ GPS location extracted successfully!';
+            errorBox.style.color = '#00e6a8';
+            resolve({ lat: latDD, lng: lngDD });
+          } else {
+            reject(new Error('No GPS data found in image headers'));
           }
-        };
-        reader.readAsArrayBuffer(file);
+        });
       });
     }
 
-    // Simple EXIF parser for GPS data
-    function getEXIFData(arrayBuffer) {
-      const view = new DataView(arrayBuffer);
-
-      // Check for JPEG marker
-      if (view.getUint16(0) !== 0xFFD8) return null;
-
-      let offset = 2;
-      while (offset < view.byteLength) {
-        if (view.getUint16(offset) === 0xFFE1) { // APP1 marker (EXIF)
-          const exifOffset = offset + 10;
-          const littleEndian = view.getUint16(exifOffset) === 0x4949;
-
-          // Parse IFD (simplified - just looking for GPS tags)
-          const gpsIFDOffset = getGPSIFDOffset(view, exifOffset, littleEndian);
-          if (gpsIFDOffset) {
-            return parseGPSIFD(view, exifOffset + gpsIFDOffset, littleEndian);
-          }
-        }
-        offset += 2 + view.getUint16(offset + 2);
-      }
-      return null;
-    }
-
-    function getGPSIFDOffset(view, exifOffset, littleEndian) {
-      try {
-        const ifdOffset = view.getUint32(exifOffset + 4, littleEndian);
-        const numEntries = view.getUint16(exifOffset + ifdOffset, littleEndian);
-
-        for (let i = 0; i < numEntries; i++) {
-          const entryOffset = exifOffset + ifdOffset + 2 + (i * 12);
-          const tag = view.getUint16(entryOffset, littleEndian);
-          if (tag === 0x8825) { // GPS IFD tag
-            return view.getUint32(entryOffset + 8, littleEndian);
-          }
-        }
-      } catch (e) {
-        console.error('Error reading GPS IFD offset:', e);
-      }
-      return null;
-    }
-
-    function parseGPSIFD(view, ifdOffset, littleEndian) {
-      const gpsData = {};
-      try {
-        const numEntries = view.getUint16(ifdOffset, littleEndian);
-
-        for (let i = 0; i < numEntries; i++) {
-          const entryOffset = ifdOffset + 2 + (i * 12);
-          const tag = view.getUint16(entryOffset, littleEndian);
-          const type = view.getUint16(entryOffset + 2, littleEndian);
-          const valueOffset = view.getUint32(entryOffset + 8, littleEndian);
-
-          if (tag === 0x0001) gpsData.GPSLatitudeRef = String.fromCharCode(view.getUint8(entryOffset + 8));
-          if (tag === 0x0002) gpsData.GPSLatitude = readRationals(view, ifdOffset - 6 + valueOffset, littleEndian, 3);
-          if (tag === 0x0003) gpsData.GPSLongitudeRef = String.fromCharCode(view.getUint8(entryOffset + 8));
-          if (tag === 0x0004) gpsData.GPSLongitude = readRationals(view, ifdOffset - 6 + valueOffset, littleEndian, 3);
-        }
-      } catch (e) {
-        console.error('Error parsing GPS IFD:', e);
-      }
-      return gpsData;
-    }
-
-    function readRationals(view, offset, littleEndian, count) {
-      const rationals = [];
-      for (let i = 0; i < count; i++) {
-        const num = view.getUint32(offset + (i * 8), littleEndian);
-        const den = view.getUint32(offset + (i * 8) + 4, littleEndian);
-        rationals.push(num / den);
-      }
-      return rationals;
-    }
-
+    // Helper to convert DMS to Decimal Degrees
     function convertDMSToDD(degrees, minutes, seconds, direction) {
-      let dd = degrees + (minutes / 60) + (seconds / 3600);
-      if (direction === 'S' || direction === 'W') dd *= -1;
+      // Handle array inputs or direct numbers (exif-js returns Numbers objects sometimes)
+      const d = Number(degrees);
+      const m = Number(minutes);
+      const s = Number(seconds);
+
+      let dd = d + (m / 60) + (s / 3600);
+      if (direction === 'S' || direction === 'W') {
+        dd = dd * -1;
+      }
       return dd;
     }
+
+
 
     /* ---------- Analyse ---------- */
     async function handleAnalyseClick() {
       console.log('🔍 Analyse button clicked');
       console.log('capturedImageData:', capturedImageData ? 'exists (' + capturedImageData.length + ' chars)' : 'null');
       console.log('API object:', typeof API !== 'undefined' ? 'available' : 'NOT DEFINED');
-      
+
       if (typeof API === 'undefined') {
         alert('❌ API not loaded. Please refresh the page.');
         console.error('API object is not defined!');
         return;
       }
-      
+
       if (!capturedImageData) { alert('Please capture or upload an image first!'); return; }
 
       // Verify GPS coordinates are present
@@ -1427,7 +1357,7 @@
         // AUTO-SUBMIT: If severity >= 60%, automatically submit the report
         if (severity >= 60) {
           submitButtons.innerHTML = `<p style="color:#ff7070; font-size:15px; margin-top:10px;">⚠️ Severe damage detected (${severity}%)! Auto-submitting report...</p>`;
-          
+
           // Auto-submit after a short delay to show the message
           setTimeout(() => {
             submitReportFromUI(severity);
@@ -1627,7 +1557,7 @@
         console.log('⚠️ TEST MODE: Skipping authentication check');
         return true;
       }
-      
+
       // Check if authenticated
       if (!API.isAuthenticated()) {
         console.warn('Not authenticated, redirecting to login');
@@ -1796,7 +1726,7 @@
             // Show video, hide captured image
             cameraView.style.display = 'block';
             capturedImg.style.display = 'none';
-            
+
             stream = await navigator.mediaDevices.getUserMedia({
               video: { facingMode: { ideal: 'environment' } },
               audio: false
@@ -1838,7 +1768,7 @@
           cameraCanvas.getContext('2d').drawImage(cameraView, 0, 0, cameraCanvas.width, cameraCanvas.height);
           capturedImageData = cameraCanvas.toDataURL('image/jpeg', 0.9);
           capturedImg.src = capturedImageData;
-          
+
           // Hide video, show captured image
           cameraView.style.display = 'none';
           capturedImg.style.display = 'block';
