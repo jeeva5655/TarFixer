@@ -2950,19 +2950,37 @@ def reject_request(request_id):
 # Analytics / Stats Endpoints
 # ---------------------------------------------------------
 
+@app.route('/api/debug/schema', methods=['GET'])
+def debug_schema():
+    """Debug endpoint to check DB schema"""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(reports)")
+        columns = [dict(row) for row in c.fetchall()]
+        conn.close()
+        return jsonify({'columns': columns}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/admin/stats', methods=['GET'])
 @require_auth(['officer'])
 def admin_stats():
     """Get dashboard analytics for officers"""
     try:
         conn = get_db()
+        conn.row_factory = sqlite3.Row # Force row factory locally
         c = conn.cursor()
 
         # 1. Status Counts
         c.execute('SELECT status, COUNT(*) as count FROM reports GROUP BY status')
-        raw_counts = {row['status']: row['count'] for row in c.fetchall()}
+        # Explicitly convert to dict to avoid row/tuple ambiguity
+        raw_counts = {}
+        for row in c.fetchall():
+            d = dict(row)
+            raw_counts[d['status']] = d['count']
         
-        # Ensure all keys exist
+        # Ensure all keys exist - handle None/NULL status safely
         counts = {
             'new': raw_counts.get('new', 0) + raw_counts.get('pending', 0), # Handle legacy 'pending'
             'assigned': raw_counts.get('assigned', 0),
@@ -2973,7 +2991,10 @@ def admin_stats():
 
         # 2. Severity Counts (Pie Chart)
         c.execute('SELECT severity, COUNT(*) as count FROM reports WHERE severity IS NOT NULL GROUP BY severity')
-        severity = {row['severity']: row['count'] for row in c.fetchall()}
+        severity = {}
+        for row in c.fetchall():
+           d = dict(row)
+           severity[d['severity']] = d['count']
 
         # 3. Weekly Activity (Last 7 Days) - Reports Created
         seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
@@ -2985,7 +3006,12 @@ def admin_stats():
             GROUP BY day
             ORDER BY day
         """, (seven_days_ago,))
-        weekly_data = {row['day']: row['count'] for row in c.fetchall()}
+        
+        weekly_data = {}
+        for row in c.fetchall():
+            d = dict(row)
+            if d['day']: # Skip if day is None
+                weekly_data[d['day']] = d['count']
         
         # Fill missing days with 0
         weekly_reports = []
@@ -3018,6 +3044,7 @@ def worker_stats():
     try:
         email = request.current_user['email']
         conn = get_db()
+        conn.row_factory = sqlite3.Row # Force row factory
         c = conn.cursor()
 
         # 1. My Tasks Status
@@ -3027,7 +3054,11 @@ def worker_stats():
             WHERE assigned_worker = ? 
             GROUP BY status
         ''', (email,))
-        raw_counts = {row['status']: row['count'] for row in c.fetchall()}
+        
+        raw_counts = {}
+        for row in c.fetchall():
+            d = dict(row)
+            raw_counts[d['status']] = d['count']
         
         counts = {
             'assigned': raw_counts.get('assigned', 0),
@@ -3050,7 +3081,11 @@ def worker_stats():
             ORDER BY day
         """, (email, seven_days_ago))
         
-        weekly_data = {row['day']: row['count'] for row in c.fetchall()}
+        weekly_data = {}
+        for row in c.fetchall():
+            d = dict(row)
+            if d['day']:
+                 weekly_data[d['day']] = d['count']
         
         weekly_perf = []
         for i in range(7):
