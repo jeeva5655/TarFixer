@@ -551,7 +551,7 @@ def ensure_reports_columns(conn):
 def init_db():
     """Initialize the database tables"""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DATABASE) # Fixed incorrect variable name
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
 
