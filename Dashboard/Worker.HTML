@@ -101,6 +101,43 @@
 </head>
 <body>
 
+<!-- Early function definitions to avoid ReferenceError -->
+<script>
+  // These functions must be defined early because they are used in onclick handlers
+  function toggleProfileDropdown(e) {
+    if (e && e.target.closest('.dropdown-item')) {
+      return;
+    }
+    const dd = document.getElementById('profileDropdown');
+    if (dd) dd.classList.toggle('show');
+  }
+  
+  function showTab(tab) {
+    const tasksTab = document.getElementById('tasksTab');
+    const historyTab = document.getElementById('historyTab');
+    const pageTitle = document.getElementById('pageTitle');
+    
+    if (tab === 'tasks') {
+      if (tasksTab) tasksTab.style.display = 'block';
+      if (historyTab) historyTab.classList.remove('active');
+      if (pageTitle) pageTitle.textContent = 'My Tasks';
+      document.querySelector('[data-key="navTasks"]')?.classList.add('active');
+      document.querySelector('[data-key="navHistory"]')?.classList.remove('active');
+    } else {
+      if (tasksTab) tasksTab.style.display = 'none';
+      if (historyTab) historyTab.classList.add('active');
+      if (pageTitle) pageTitle.textContent = 'History';
+      document.querySelector('[data-key="navTasks"]')?.classList.remove('active');
+      document.querySelector('[data-key="navHistory"]')?.classList.add('active');
+    }
+  }
+  
+  function toggleStatus() {
+    // Will be overridden by main script, this is a placeholder
+    console.log('toggleStatus called');
+  }
+</script>
+
 <div class="container">
   <aside class="sidebar">
     <div class="brand"><i class="fa-solid fa-helmet-safety"></i> <span data-key="brand">Worker</span></div>
