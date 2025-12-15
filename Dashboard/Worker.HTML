@@ -1060,8 +1060,8 @@
       document.body.classList.toggle('light-theme');
       if (taskMap) {
         taskMap.removeLayer(tileLayerModal);
-        const isDark = !document.body.classList.contains('light-theme');
-        const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        // Keep Satellite view for "Real Map" feel
+        const url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
       }
     }
@@ -1080,9 +1080,15 @@
 
       setTimeout(() => {
         taskMap = L.map('mapModalInner', { attributionControl: false }).setView([lat, lng], 15);
-        const isDark = !document.body.classList.contains('light-theme');
-        const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
+
+        // Use Esri World Imagery for "Real Map" satellite view
+        const url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        const attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+
+        tileLayerModal = L.tileLayer(url, {
+          maxZoom: 19,
+          attribution: attribution
+        }).addTo(taskMap);
 
         L.circleMarker([lat, lng], { radius: 8, fillColor: '#ff9800', color: '#fff', weight: 2, fillOpacity: 1 })
           .addTo(taskMap)
