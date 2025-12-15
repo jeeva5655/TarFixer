@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,1027 +8,1378 @@
   <!-- Cache bust: v2.1 -->
 
   <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-  
-  <!-- API Client -->
-  <script src="../api-client.js"></script>
 
   <style>
-    :root{
-      --bg:#0b1220; --card: #152639; --accent: #00e6a8; --muted: #bfcbd6;
-      --text: #e6f0f2; --border: rgba(255,255,255,0.1);
-      --modal-bg: rgba(7,23,40,0.96);
+    :root {
+      --bg: #0b1220;
+      --card: #152639;
+      --accent: #00e6a8;
+      --muted: #bfcbd6;
+      --text: #e6f0f2;
+      --border: rgba(255, 255, 255, 0.1);
+      --modal-bg: rgba(7, 23, 40, 0.96);
     }
+
     /* FIXED LIGHT THEME (ONLY VISIBILITY, NO UI CHANGES) */
-.light-theme {
-  --bg: #ffffff;
-  --card: #f9f9f9;
-  --accent: #009970;
-  --muted: #333333;     /* darker gray so text is visible */
-  --text: #000000;      /* strong readable black text */
-  --border: #d0d0d0;
-  --modal-bg: rgba(255,255,255,0.95);
+    .light-theme {
+      --bg: #ffffff;
+      --card: #f9f9f9;
+      --accent: #009970;
+      --muted: #333333;
+      /* darker gray so text is visible */
+      --text: #000000;
+      /* strong readable black text */
+      --border: #d0d0d0;
+      --modal-bg: rgba(255, 255, 255, 0.95);
 
-  /* Buttons readable */
-  --btn-text-dark: #ffffff;
-}
+      /* Buttons readable */
+      --btn-text-dark: #ffffff;
+    }
 
-    body{ margin:0; font-family: "Segoe UI", sans-serif; background: var(--bg); color: var(--text); transition: 0.25s; height: 100vh; overflow: hidden; }
-    .container{ display:grid; grid-template-columns: 260px 1fr; height: 100%; }
-    .leaflet-control-attribution { display: none !important; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: 0.25s;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      height: 100%;
+    }
+
+    .leaflet-control-attribution {
+      display: none !important;
+    }
 
     /* Sidebar */
-    .sidebar{ background: var(--card); padding: 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 20px; z-index:100; }
-    .brand { font-size: 20px; font-weight: 800; display: flex; gap: 10px; align-items: center; color: var(--accent); margin-bottom: 10px; }
-    .nav-item { padding: 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 600; display: flex; gap: 10px; align-items: center; }
-    .nav-item.active { background: rgba(255,255,255,0.05); color: var(--text); border-left: 3px solid var(--accent); }
+    .sidebar {
+      background: var(--card);
+      padding: 20px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 100;
+    }
 
-    .status-card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid var(--border); margin-top: auto; }
-    .toggle-btn { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; transition: 0.3s; font-size: 16px; }
-    .is-avail { background: var(--accent); color: #002; }
-    .is-busy { background: #ff3b3b; color: #fff; }
+    .brand {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .nav-item {
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--muted);
+      font-weight: 600;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .nav-item.active {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border-left: 3px solid var(--accent);
+    }
+
+    .status-card {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      border: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .toggle-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      transition: 0.3s;
+      font-size: 16px;
+    }
+
+    .is-avail {
+      background: var(--accent);
+      color: #002;
+    }
+
+    .is-busy {
+      background: #ff3b3b;
+      color: #fff;
+    }
 
     /* Main */
-    .main { padding: 20px; overflow-y: auto; position: relative; display: flex; flex-direction: column; gap: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; }
+    .main {
+      padding: 20px;
+      overflow-y: auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
 
-    .task-card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
-    .task-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; background: #000; }
-    .task-info { flex: 1; }
-    .btn { padding: 10px 16px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; margin-top: 8px; }
-    .btn-start { background: #3b82f6; color: #fff; }
-    .btn-map { background: #ff9800; color: #002; margin-left: 8px; }
-    .btn-finish { background: #00c853; color: #002; margin-left: 8px; display:none; } /* hidden until Start Work */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-    .history-section { display: none; flex-direction: column; gap: 10px; }
-    .history-section.active { display: flex; }
-    .history-item { background: var(--card); padding: 12px; border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; }
+    .task-card {
+      background: var(--card);
+      padding: 15px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .task-img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #000;
+    }
+
+    .task-info {
+      flex: 1;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .btn-start {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    .btn-map {
+      background: #ff9800;
+      color: #002;
+      margin-left: 8px;
+    }
+
+    .btn-finish {
+      background: #00c853;
+      color: #002;
+      margin-left: 8px;
+      display: none;
+    }
+
+    /* hidden until Start Work */
+
+    .history-section {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-section.active {
+      display: flex;
+    }
+
+    .history-item {
+      background: var(--card);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
 
     /* CAMERA OVERLAY */
-    .cam-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 8000; display: none; flex-direction: column; align-items:center; justify-content:center; }
-    #cameraView { width: 100%; max-width: 720px; height: 60vh; background: #111; border-radius: 8px; object-fit: cover; }
-    .cam-controls { margin-top: 12px; display:flex; gap:12px; align-items:center; justify-content:center; }
-    .capture-btn { width: 72px; height: 72px; border-radius: 50%; background: #fff; border: 6px solid #ddd; cursor: pointer; }
-    .close-cam-btn { color: #fff; background: rgba(255,255,255,0.05); padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; }
+    .cam-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 8000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #cameraView {
+      width: 100%;
+      max-width: 720px;
+      height: 60vh;
+      background: #111;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    .cam-controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .capture-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #fff;
+      border: 6px solid #ddd;
+      cursor: pointer;
+    }
+
+    .close-cam-btn {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
 
     /* SETTINGS */
-    .modal-back { position: fixed; inset: 0; background: var(--modal-bg); z-index: 7000; display: none; align-items: center; justify-content: center; }
-    .modal { background: var(--card); width: 90%; max-width: 420px; padding: 18px; border-radius: 12px; border: 1px solid var(--border); }
-    .settings-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .modal-back {
+      position: fixed;
+      inset: 0;
+      background: var(--modal-bg);
+      z-index: 7000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal {
+      background: var(--card);
+      width: 90%;
+      max-width: 420px;
+      padding: 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
 
     /* THEME SWITCH */
-    .theme-switch { position: relative; width: 60px; height: 30px; }
-    .theme-switch input { opacity: 0; width: 0; height: 0; }
-    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-    .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+    .theme-switch {
+      position: relative;
+      width: 60px;
+      height: 30px;
+    }
+
+    .theme-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 24px;
+      width: 24px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
 
     /* Worker Profile Dropdown */
-    .worker-profile { display:flex; gap:10px; align-items:center; background: var(--card); padding: 6px 12px; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; position: relative; z-index: 7100; }
-    .dropdown-menu { position: absolute; top: 110%; right: 0; width: 220px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: none; z-index: 7200; padding: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-    .dropdown-menu.show { display: block; }
-    .dropdown-item { padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
-    .dropdown-item:hover { background: rgba(255,255,255,0.03); }
+    .worker-profile {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--card);
+      padding: 6px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      z-index: 7100;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 110%;
+      right: 0;
+      width: 220px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: none;
+      z-index: 7200;
+      padding: 8px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .dropdown-menu.show {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dropdown-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
 
     /* MAP MODAL */
-    .map-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 6000; display: none; align-items: center; justify-content: center; padding: 20px; }
-    .map-modal .box { width: 100%; max-width: 940px; height: 70vh; background: var(--card); border-radius: 12px; overflow: hidden; position: relative; border: 1px solid var(--border); }
-    #mapModalInner { width: 100%; height: 100%; }
-    .close-map-btn { position: absolute; top: 12px; right: 12px; z-index: 6500; background: rgba(0,0,0,0.6); color: #fff; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    .map-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 6000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
 
-    @media(max-width: 768px) { .container { grid-template-columns: 1fr; } .sidebar { display: none; } .map-modal .box { max-width: 95%; height: 60vh; } .cam-modal #cameraView { width: 95%; height: 50vh; } }
+    .map-modal .box {
+      width: 100%;
+      max-width: 940px;
+      height: 70vh;
+      background: var(--card);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--border);
+    }
+
+    #mapModalInner {
+      width: 100%;
+      height: 100%;
+    }
+
+    .close-map-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 6500;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    @media(max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .map-modal .box {
+        max-width: 95%;
+        height: 60vh;
+      }
+
+      .cam-modal #cameraView {
+        width: 95%;
+        height: 50vh;
+      }
+    }
   </style>
 </head>
+
 <body>
 
-<!-- Early function definitions to avoid ReferenceError -->
-<script>
-  // These functions must be defined early because they are used in onclick handlers
-  function toggleProfileDropdown(e) {
-    if (e && e.target.closest('.dropdown-item')) {
-      return;
-    }
-    const dd = document.getElementById('profileDropdown');
-    if (dd) dd.classList.toggle('show');
-  }
-  
-  function showTab(tab) {
-    const tasksTab = document.getElementById('tasksTab');
-    const historyTab = document.getElementById('historyTab');
-    const pageTitle = document.getElementById('pageTitle');
-    
-    if (tab === 'tasks') {
-      if (tasksTab) tasksTab.style.display = 'block';
-      if (historyTab) historyTab.classList.remove('active');
-      if (pageTitle) pageTitle.textContent = 'My Tasks';
-      document.querySelector('[data-key="navTasks"]')?.classList.add('active');
-      document.querySelector('[data-key="navHistory"]')?.classList.remove('active');
-    } else {
-      if (tasksTab) tasksTab.style.display = 'none';
-      if (historyTab) historyTab.classList.add('active');
-      if (pageTitle) pageTitle.textContent = 'History';
-      document.querySelector('[data-key="navTasks"]')?.classList.remove('active');
-      document.querySelector('[data-key="navHistory"]')?.classList.add('active');
-    }
-  }
-  
-  function toggleStatus() {
-    // Will be overridden by main script, this is a placeholder
-    console.log('toggleStatus called');
-  }
-</script>
-
-<div class="container">
-  <aside class="sidebar">
-    <div class="brand"><i class="fa-solid fa-helmet-safety"></i> <span data-key="brand">Worker</span></div>
-    <div class="nav-item active" onclick="showTab('tasks')" data-key="navTasks"><i class="fa-solid fa-list-check"></i> My Tasks</div>
-    <div class="nav-item" onclick="showTab('history')" data-key="navHistory"><i class="fa-solid fa-clock-rotate-left"></i> History</div>
-
-    <div class="status-card" title="Toggle availability">
-      <div style="font-size:12px; color:var(--muted)" data-key="statusLabel">Current Status</div>
-      <div id="statusText" style="font-weight:700; font-size:20px; margin: 10px 0;" data-key="avail">Available</div>
-      <button class="toggle-btn is-avail" id="statusBtn" onclick="toggleStatus()">Go Busy</button>
-    </div>
-  </aside>
-
-  <main class="main" id="mainContent">
-    <div class="header">
-      <h2 id="pageTitle" data-key="tasks">My Tasks</h2>
-
-      <div class="worker-profile" id="workerProfileBtn" onclick="toggleProfileDropdown(event)">
-        <div style="text-align:right">
-          <div style="font-weight:700; font-size: 14px;" id="workerName">Worker</div>
-          <div style="font-size:11px;color:var(--accent); font-weight:700" id="workerEmail"></div>
-        </div>
-        <div style="width:36px;height:36px;border-radius:8px;background:#6c757d;display:flex;align-items:center;justify-content:center;color:#fff;" id="workerInitials">W</div>
-
-        <div class="dropdown-menu" id="profileDropdown" role="menu" aria-hidden="true">
-          <div class="dropdown-item" onclick="openSettings(event)"><i class="fa-solid fa-gear"></i> <span data-key="settings">Settings</span></div>
-          <div class="dropdown-item" onclick="signOut(event)" style="color:#ff3b3b"><i class="fa-solid fa-right-from-bracket"></i> <span data-key="signout">Sign Out</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TASKS TAB -->
-    <div id="tasksTab">
-      <div id="taskList">
-        <!-- Tasks will be loaded from API -->
-        <div style="text-align:center; color:var(--muted); margin-top:40px;">Loading tasks...</div>
-      </div>
-    </div>
-
-    <!-- HISTORY TAB -->
-    <div id="historyTab" class="history-section" aria-hidden="true">
-      <div class="history-item">
-        <div><b>TF-001</b> <br><small style="color:var(--muted)">Anna Nagar</small></div>
-        <span style="color:var(--accent)">Completed</span>
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- CAMERA MODAL -->
-<div class="cam-modal" id="camModal" aria-hidden="true">
-  <video id="cameraView" autoplay playsinline></video>
-  <div class="cam-controls">
-    <button class="close-cam-btn" onclick="closeCamera()" data-key="cancel">Cancel</button>
-    <button class="capture-btn" onclick="captureFinalPhoto()" aria-label="capture"></button>
-  </div>
-</div>
-
-<!-- MAP MODAL -->
-<div class="map-modal" id="mapModal" aria-hidden="true">
-  <div class="box" role="dialog" aria-modal="true">
-    <button class="close-map-btn" onclick="closeMapModal()" data-key="closeMap">Close Map</button>
-    <div id="mapModalInner"></div>
-  </div>
-</div>
-
-<!-- SETTINGS -->
-<div class="modal-back" id="settingsModal" role="dialog" aria-modal="true">
-  <div class="modal" id="settingsContent">
-    <h3 data-key="settings">Settings</h3>
-
-    <div class="settings-row">
-      <label data-key="language">Language</label>
-      <select id="langSelect" onchange="changeLanguage(this.value)" style="padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-        <!-- 8 Indian languages -->
-        <option value="en">English</option>
-        <option value="hi">हिन्दी (Hindi)</option>
-        <option value="ta">தமிழ் (Tamil)</option>
-        <option value="te">తెలుగు (Telugu)</option>
-        <option value="kn">ಕನ್ನಡ (Kannada)</option>
-        <option value="ml">മലയാളം (Malayalam)</option>
-        <option value="bn">বাংলা (Bengali)</option>
-        <option value="mr">मराठी (Marathi)</option>
-      </select>
-    </div>
-
-    <div class="settings-row">
-      <label data-key="theme">Theme</label>
-      <label class="theme-switch">
-        <input type="checkbox" id="themeToggle" onclick="toggleTheme()">
-        <span class="slider round"></span>
-      </label>
-    </div>
-
-    <button class="btn" style="width:100%; background:var(--accent); color:#002" onclick="closeSettings()" data-key="close">Close</button>
-  </div>
-</div>
-
-<script>
-  // Basic state
-  let isAvailable = true;
-  let currentLang = 'en';
-  let taskMap = null, tileLayerModal = null;
-  let activeCameraStream = null;
-  let currentFinishingTask = null;
-  let tasksData = []; // Store task data from API
-  
-  // PROFILE DROPDOWN - Define early to avoid ReferenceError
-  function toggleProfileDropdown(e) {
-    // Don't toggle if clicking on dropdown items (they handle themselves)
-    if (e && e.target.closest('.dropdown-item')) {
-      return;
-    }
-    const dd = document.getElementById('profileDropdown');
-    if (dd) dd.classList.toggle('show');
-  }
-  
-  // API Client
-  const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:5000/api'
-    : 'https://tarfixer-backend.onrender.com/api';
-  
-  // Get auth token
-  function getToken() {
-    return localStorage.getItem('tarfixer_auth_token');
-  }
-  
-  // Fetch tasks assigned to this worker
-  async function fetchMyTasks() {
-    const taskList = document.getElementById('taskList');
-    taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;"><div>Loading tasks...</div><div style="font-size:12px; margin-top:8px;">Connecting to server (may take up to 30s on first load)</div></div>';
-    
-    try {
-      const token = getToken();
-      if (!token) {
-        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;">Not logged in. Please login again.</div>';
+  <!-- Early function definitions to avoid ReferenceError -->
+  <script>
+    // These functions must be defined early because they are used in onclick handlers
+    function toggleProfileDropdown(e) {
+      if (e && e.target.closest('.dropdown-item')) {
         return;
       }
-      
-      console.log('Fetching tasks from:', `${API_BASE_URL}/workers/tasks`);
-      
-      // Add timeout for slow server startup
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
-      
-      const response = await fetch(`${API_BASE_URL}/workers/tasks`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error:', errorText);
-        throw new Error(`Server error: ${response.status}`);
+      const dd = document.getElementById('profileDropdown');
+      if (dd) dd.classList.toggle('show');
+    }
+
+    function showTab(tab) {
+      const tasksTab = document.getElementById('tasksTab');
+      const historyTab = document.getElementById('historyTab');
+      const pageTitle = document.getElementById('pageTitle');
+
+      if (tab === 'tasks') {
+        if (tasksTab) tasksTab.style.display = 'block';
+        if (historyTab) historyTab.classList.remove('active');
+        if (pageTitle) pageTitle.textContent = 'My Tasks';
+        document.querySelector('[data-key="navTasks"]')?.classList.add('active');
+        document.querySelector('[data-key="navHistory"]')?.classList.remove('active');
+      } else {
+        if (tasksTab) tasksTab.style.display = 'none';
+        if (historyTab) historyTab.classList.add('active');
+        if (pageTitle) pageTitle.textContent = 'History';
+        document.querySelector('[data-key="navTasks"]')?.classList.remove('active');
+        document.querySelector('[data-key="navHistory"]')?.classList.add('active');
       }
-      
-      const data = await response.json();
-      console.log('Tasks received:', data);
-      tasksData = data || [];
-      
-      // Filter out completed/resolved tasks
-      const activeTasks = tasksData.filter(t => t.status === 'assigned' || t.status === 'in_progress');
-      
-      if (activeTasks.length === 0) {
-        taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">No pending tasks assigned to you.</div>';
+    }
+
+    function toggleStatus() {
+      // Will be overridden by main script, this is a placeholder
+      console.log('toggleStatus called');
+    }
+  </script>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="brand"><i class="fa-solid fa-helmet-safety"></i> <span data-key="brand">Worker</span></div>
+      <div class="nav-item active" onclick="showTab('tasks')" data-key="navTasks"><i class="fa-solid fa-list-check"></i>
+        My Tasks</div>
+      <div class="nav-item" onclick="showTab('history')" data-key="navHistory"><i
+          class="fa-solid fa-clock-rotate-left"></i> History</div>
+
+      <div class="status-card" title="Toggle availability">
+        <div style="font-size:12px; color:var(--muted)" data-key="statusLabel">Current Status</div>
+        <div id="statusText" style="font-weight:700; font-size:20px; margin: 10px 0;" data-key="avail">Available</div>
+        <button class="toggle-btn is-avail" id="statusBtn" onclick="toggleStatus()">Go Busy</button>
+      </div>
+    </aside>
+
+    <main class="main" id="mainContent">
+      <div class="header">
+        <h2 id="pageTitle" data-key="tasks">My Tasks</h2>
+
+        <div class="worker-profile" id="workerProfileBtn" onclick="toggleProfileDropdown(event)">
+          <div style="text-align:right">
+            <div style="font-weight:700; font-size: 14px;" id="workerName">Worker</div>
+            <div style="font-size:11px;color:var(--accent); font-weight:700" id="workerEmail"></div>
+          </div>
+          <div
+            style="width:36px;height:36px;border-radius:8px;background:#6c757d;display:flex;align-items:center;justify-content:center;color:#fff;"
+            id="workerInitials">W</div>
+
+          <div class="dropdown-menu" id="profileDropdown" role="menu" aria-hidden="true">
+            <div class="dropdown-item" onclick="openSettings(event)"><i class="fa-solid fa-gear"></i> <span
+                data-key="settings">Settings</span></div>
+            <div class="dropdown-item" onclick="signOut(event)" style="color:#ff3b3b"><i
+                class="fa-solid fa-right-from-bracket"></i> <span data-key="signout">Sign Out</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TASKS TAB -->
+      <div id="tasksTab">
+        <div id="taskList">
+          <!-- Tasks will be loaded from API -->
+          <div style="text-align:center; color:var(--muted); margin-top:40px;">Loading tasks...</div>
+        </div>
+      </div>
+
+      <!-- HISTORY TAB -->
+      <div id="historyTab" class="history-section" aria-hidden="true">
+        <div class="history-item">
+          <div><b>TF-001</b> <br><small style="color:var(--muted)">Anna Nagar</small></div>
+          <span style="color:var(--accent)">Completed</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CAMERA MODAL -->
+  <div class="cam-modal" id="camModal" aria-hidden="true">
+    <video id="cameraView" autoplay playsinline></video>
+    <div class="cam-controls">
+      <button class="close-cam-btn" onclick="closeCamera()" data-key="cancel">Cancel</button>
+      <button class="capture-btn" onclick="captureFinalPhoto()" aria-label="capture"></button>
+    </div>
+  </div>
+
+  <!-- MAP MODAL -->
+  <div class="map-modal" id="mapModal" aria-hidden="true">
+    <div class="box" role="dialog" aria-modal="true">
+      <button class="close-map-btn" onclick="closeMapModal()" data-key="closeMap">Close Map</button>
+      <div id="mapModalInner"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="modal-back" id="settingsModal" role="dialog" aria-modal="true">
+    <div class="modal" id="settingsContent">
+      <h3 data-key="settings">Settings</h3>
+
+      <div class="settings-row">
+        <label data-key="language">Language</label>
+        <select id="langSelect" onchange="changeLanguage(this.value)"
+          style="padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+          <!-- 8 Indian languages -->
+          <option value="en">English</option>
+          <option value="hi">हिन्दी (Hindi)</option>
+          <option value="ta">தமிழ் (Tamil)</option>
+          <option value="te">తెలుగు (Telugu)</option>
+          <option value="kn">ಕನ್ನಡ (Kannada)</option>
+          <option value="ml">മലയാളം (Malayalam)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="mr">मराठी (Marathi)</option>
+        </select>
+      </div>
+
+      <div class="settings-row">
+        <label data-key="theme">Theme</label>
+        <label class="theme-switch">
+          <input type="checkbox" id="themeToggle" onclick="toggleTheme()">
+          <span class="slider round"></span>
+        </label>
+      </div>
+
+      <button class="btn" style="width:100%; background:var(--accent); color:#002" onclick="closeSettings()"
+        data-key="close">Close</button>
+    </div>
+  </div>
+  <!-- Load API Client before inline scripts that depend on it -->
+  <script src="../api-client.js"></script>
+
+
+  <script>
+    // Basic state
+    let isAvailable = true;
+    let currentLang = 'en';
+    let taskMap = null, tileLayerModal = null;
+    let activeCameraStream = null;
+    let currentFinishingTask = null;
+    let tasksData = []; // Store task data from API
+
+    // PROFILE DROPDOWN - Define early to avoid ReferenceError
+    function toggleProfileDropdown(e) {
+      // Don't toggle if clicking on dropdown items (they handle themselves)
+      if (e && e.target.closest('.dropdown-item')) {
         return;
       }
-      
-      // Render tasks
-      taskList.innerHTML = '';
-      activeTasks.forEach(task => {
-        const taskId = task.id;
-        const lat = task.latitude || 0;
-        const lng = task.longitude || 0;
-        const location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-        const imgSrc = task.annotated_image || task.original_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect fill='%23333' width='150' height='150'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='12' x='50%25' y='50%25' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
-        
-        const statusLabel = task.status === 'in_progress' ? 'IN PROGRESS' : 'ASSIGNED';
-        const statusColor = task.status === 'in_progress' ? '#3b82f6' : 'orange';
-        const showStart = task.status === 'assigned';
-        const showFinish = task.status === 'in_progress';
-        
-        const cardHtml = `
+      const dd = document.getElementById('profileDropdown');
+      if (dd) dd.classList.toggle('show');
+    }
+
+    // API Client
+    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : 'https://tarfixer-backend.onrender.com/api';
+
+    // Get auth token
+    function getToken() {
+      return localStorage.getItem('tarfixer_auth_token');
+    }
+
+    // Fetch tasks assigned to this worker
+    async function fetchMyTasks() {
+      const taskList = document.getElementById('taskList');
+      taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;"><div>Loading tasks...</div><div style="font-size:12px; margin-top:8px;">Connecting to server (may take up to 30s on first load)</div></div>';
+
+      try {
+        const token = getToken();
+        if (!token) {
+          taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;">Not logged in. Please login again.</div>';
+          return;
+        }
+
+        console.log('Fetching tasks from:', `${API_BASE_URL}/workers/tasks`);
+
+        // Add timeout for slow server startup
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+
+        const response = await fetch(`${API_BASE_URL}/workers/tasks`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', errorText);
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Tasks received:', data);
+        tasksData = data || [];
+
+        // Filter out completed/resolved tasks
+        const activeTasks = tasksData.filter(t => t.status === 'assigned' || t.status === 'in_progress');
+
+        if (activeTasks.length === 0) {
+          taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">No pending tasks assigned to you.</div>';
+          return;
+        }
+
+        // Render tasks
+        taskList.innerHTML = '';
+        activeTasks.forEach(task => {
+          const taskId = task.id;
+          const lat = task.latitude || 0;
+          const lng = task.longitude || 0;
+          const location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          const imgSrc = task.annotated_image || task.original_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect fill='%23333' width='150' height='150'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='12' x='50%25' y='50%25' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+          const statusLabel = task.status === 'in_progress' ? 'IN PROGRESS' : 'ASSIGNED';
+          const statusColor = task.status === 'in_progress' ? '#3b82f6' : 'orange';
+          const showStart = task.status === 'assigned';
+          const showFinish = task.status === 'in_progress';
+
+          const cardHtml = `
           <div class="task-card" id="task-${taskId}" data-lat="${lat}" data-lng="${lng}">
             <img src="${imgSrc}" class="task-img" alt="task image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27150%27 height=%27150%27%3E%3Crect fill=%27%23333%27 width=%27150%27 height=%27150%27/%3E%3C/svg%3E'">
             <div class="task-info">
               <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3>TF-${taskId.substring(0,6)}</h3>
+                <h3>TF-${taskId.substring(0, 6)}</h3>
                 <span class="status-text" style="color:${statusColor}; font-weight:bold">${statusLabel}</span>
               </div>
               <p style="color:var(--muted); font-size:14px;">${location}</p>
               <p style="color:var(--muted); font-size:12px;">Severity: ${task.severity || task.damage_percentage || 'N/A'}%</p>
               <div>
                 <button class="btn btn-start" onclick="startWork('${taskId}')" style="display:${showStart ? 'inline-block' : 'none'}">Start Work</button>
-                <button class="btn btn-map" onclick="showTaskMap(${lat},${lng},'TF-${taskId.substring(0,6)}')">View Map</button>
+                <button class="btn btn-map" onclick="showTaskMap(${lat},${lng},'TF-${taskId.substring(0, 6)}')">View Map</button>
                 <button class="btn btn-finish" onclick="finishAndUpload('${taskId}')" style="display:${showFinish ? 'inline-block' : 'none'}">Finish & Upload</button>
               </div>
             </div>
           </div>
         `;
-        taskList.insertAdjacentHTML('beforeend', cardHtml);
-      });
-      
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
-      if (error.name === 'AbortError') {
-        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Server is taking too long to respond.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a> or wait for server to wake up.</div></div>';
-      } else {
-        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Failed to load tasks.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a></div></div>';
+          taskList.insertAdjacentHTML('beforeend', cardHtml);
+        });
+
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+        if (error.name === 'AbortError') {
+          taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Server is taking too long to respond.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a> or wait for server to wake up.</div></div>';
+        } else {
+          taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Failed to load tasks.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a></div></div>';
+        }
       }
     }
-  }
 
-  // TRANSLATIONS: 8 languages (keys used across UI)
-  const TRANSLATIONS = {
-    en: {
-      brand: "Worker",
-      navTasks: "My Tasks",
-      navHistory: "History",
-      statusLabel: "Current Status",
-      avail: "Available",
-      busy: "Busy",
-      start: "Start Work",
-      assigned: "ASSIGNED",
-      finish: "Finish & Upload",
-      settings: "Settings",
-      language: "Language",
-      theme: "Theme",
-      close: "Close",
-      viewmap: "View Map",
-      cancel: "Cancel",
-      signout: "Sign Out",
-      goBusy: "Go Busy",
-      goFree: "Go Available",
-      closeMap: "Close Map"
-    },
-    hi: {
-      brand: "कर्मचारी",
-      navTasks: "मेरे कार्य",
-      navHistory: "इतिहास",
-      statusLabel: "वर्तमान स्थिति",
-      avail: "उपलब्ध",
-      busy: "व्यस्त",
-      start: "काम शुरू करें",
-      assigned: "आवंटित",
-      finish: "समाप्त करें और अपलोड करें",
-      settings: "सेटिंग्स",
-      language: "भाषा",
-      theme: "थीम",
-      close: "बंद करें",
-      viewmap: "मानचित्र देखें",
-      cancel: "रद्द करें",
-      signout: "साइन आउट",
-      goBusy: "व्यस्त हो जाएँ",
-      goFree: "उपलब्ध कराएँ",
-      closeMap: "मानचित्र बंद करें"
-    },
-    ta: {
-      brand: "தொழிலாளி",
-      navTasks: "எனது பணி",
-      navHistory: "வரலாறு",
-      statusLabel: "தற்போதைய நிலை",
-      avail: "கிடைக்கும்",
-      busy: "பொழுதுபோக்கு",
-      start: "வேலைத் தொடங்கு",
-      assigned: "ஒதுக்கப்பட்டுள்ளது",
-      finish: "முடித்துவிட்டு பதிவேற்று",
-      settings: "அமைப்புகள்",
-      language: "மொழி",
-      theme: "தீம்",
-      close: "மூடு",
-      viewmap: "வரைபடம் காண்",
-      cancel: "ரத்து",
-      signout: "வெளியேறு",
-      goBusy: "பிஸியாக்க",
-      goFree: "கிடைக்கும்",
-      closeMap: "வரைபடம் மூடு"
-    },
-    te: {
-      brand: "తన పని",
-      navTasks: "నాకు పని",
-      navHistory: "చరిత్ర",
-      statusLabel: "ప్రస్తుత స్థితి",
-      avail: "అందుబాటులో ఉంది",
-      busy: "బిజీ",
-      start: "పని ప్రారంభించు",
-      assigned: "నియుక్తం",
-      finish: "ముగించి అప్లోడ్ చేయండి",
-      settings: "సెట్టింగ్స్",
-      language: "భాష",
-      theme: "థీమ్",
-      close: "క్లోజ్",
-      viewmap: "మ్యాప్ చూడండి",
-      cancel: "రద్దు",
-      signout: "సైన్ అవుట్",
-      goBusy: "బిజీ అవ్వండి",
-      goFree: "నిల్వకు రాబోసు",
-      closeMap: "మ్యాప్ మూసేయి"
-    },
-    kn: {
-      brand: "ಕೆಲಸಗಾರ",
-      navTasks: "ನನ್ನ ಕಾರ್ಯಗಳು",
-      navHistory: "ಇತಿಹಾಸ",
-      statusLabel: "ಪ್ರಸ್ತುತ ಸ್ಥಿತಿ",
-      avail: "ಲಭ್ಯವಿದೆ",
-      busy: "ವ್ಯಸ್ತ",
-      start: "ಕೆಲಸ ಪ್ರಾರಂಭಿಸಿ",
-      assigned: "ಹೊಂದಿಸಲಾಗಿದೆ",
-      finish: "ಪೂರ್ಣ ಮಾಡಿ ಅಪ್‍ಲೋಡ್ ಮಾಡಿ",
-      settings: "ಸೆಟಿಂಗ್‍ಗಳು",
-      language: "ಭಾಷೆ",
-      theme: "ಥೀಂ",
-      close: "ಮುಚ್ಚಿ",
-      viewmap: "ನಕ್ಷೆ ನೋಡಿ",
-      cancel: "ರದ್ದುಗೊಳಿಸಿ",
-      signout: "ಸೈನ್ ಔಟ್",
-      goBusy: "ವ್ಯಸ್ತರಾಗಿ",
-      goFree: "ಲಭ್ಯವಾಗಿರಿ",
-      closeMap: "ನಕ್ಷೆ ಮುಚ್ಚು"
-    },
-    ml: {
-      brand: "ജോലിക്കാരൻ",
-      navTasks: "എന്റെ ജോലികൾ",
-      navHistory: "ചരിത്രം",
-      statusLabel: "വർത്തമാന നില",
-      avail: "ലഭ്യമാണ്",
-      busy: "ബിസി",
-      start: "ജോലി ആരംഭിക്കുക",
-      assigned: "അയവിറുത്തിയിരിക്കുന്നു",
-      finish: "അവസാനിച്ച് അപ്‌ലോഡ് ചെയ്യുക",
-      settings: "ക്രമീകരണങ്ങൾ",
-      language: "ഭാഷ",
-      theme: "തീം",
-      close: "മൂടുക",
-      viewmap: "മാപ്പ് കാണുക",
-      cancel: "റദ്ദാക്കുക",
-      signout: "സൈൻ ഔട്ട്",
-      goBusy: "ബിസിയാവുക",
-      goFree: "ലഭ്യമാക്കുക",
-      closeMap: "മാപ്പ് അടയ്ക്കുക"
-    },
-    bn: {
-      brand: "কর্মী",
-      navTasks: "আমার কাজ",
-      navHistory: "ইতিহাস",
-      statusLabel: "বর্তমান অবস্থা",
-      avail: "উপলব্ধ",
-      busy: "ব্যস্ত",
-      start: "কাজ শুরু করুন",
-      assigned: "নিয়োগকৃত",
-      finish: "সমাপ্ত করুন এবং আপলোড করুন",
-      settings: "সেটিংস",
-      language: "ভাষা",
-      theme: "থিম",
-      close: "বন্ধ করুন",
-      viewmap: "মানচিত্র দেখুন",
-      cancel: "বাতিল",
-      signout: "সাইন আউট",
-      goBusy: "ব্যস্ত হন",
-      goFree: "উপলব্ধ করুন",
-      closeMap: "মানচিত্র বন্ধ করুন"
-    },
-    mr: {
-      brand: "कामगार",
-      navTasks: "माझी कामे",
-      navHistory: "इतिहास",
-      statusLabel: "सध्याची स्थिती",
-      avail: "उपलब्ध",
-      busy: "बिझी",
-      start: "काम सुरू करा",
-      assigned: "नेमलेले",
-      finish: "पूर्ण करा आणि अपलोड करा",
-      settings: "सेटिंग्ज",
-      language: "भाषा",
-      theme: "थीम",
-      close: "बंद करा",
-      viewmap: "नकाशा पहा",
-      cancel: "रद्द करा",
-      signout: "साइन आउट",
-      goBusy: "बिझी व्हा",
-      goFree: "उपलब्ध करा",
-      closeMap: "नकाशा बंद करा"
+    // TRANSLATIONS: 8 languages (keys used across UI)
+    const TRANSLATIONS = {
+      en: {
+        brand: "Worker",
+        navTasks: "My Tasks",
+        navHistory: "History",
+        statusLabel: "Current Status",
+        avail: "Available",
+        busy: "Busy",
+        start: "Start Work",
+        assigned: "ASSIGNED",
+        finish: "Finish & Upload",
+        settings: "Settings",
+        language: "Language",
+        theme: "Theme",
+        close: "Close",
+        viewmap: "View Map",
+        cancel: "Cancel",
+        signout: "Sign Out",
+        goBusy: "Go Busy",
+        goFree: "Go Available",
+        closeMap: "Close Map"
+      },
+      hi: {
+        brand: "कर्मचारी",
+        navTasks: "मेरे कार्य",
+        navHistory: "इतिहास",
+        statusLabel: "वर्तमान स्थिति",
+        avail: "उपलब्ध",
+        busy: "व्यस्त",
+        start: "काम शुरू करें",
+        assigned: "आवंटित",
+        finish: "समाप्त करें और अपलोड करें",
+        settings: "सेटिंग्स",
+        language: "भाषा",
+        theme: "थीम",
+        close: "बंद करें",
+        viewmap: "मानचित्र देखें",
+        cancel: "रद्द करें",
+        signout: "साइन आउट",
+        goBusy: "व्यस्त हो जाएँ",
+        goFree: "उपलब्ध कराएँ",
+        closeMap: "मानचित्र बंद करें"
+      },
+      ta: {
+        brand: "தொழிலாளி",
+        navTasks: "எனது பணி",
+        navHistory: "வரலாறு",
+        statusLabel: "தற்போதைய நிலை",
+        avail: "கிடைக்கும்",
+        busy: "பொழுதுபோக்கு",
+        start: "வேலைத் தொடங்கு",
+        assigned: "ஒதுக்கப்பட்டுள்ளது",
+        finish: "முடித்துவிட்டு பதிவேற்று",
+        settings: "அமைப்புகள்",
+        language: "மொழி",
+        theme: "தீம்",
+        close: "மூடு",
+        viewmap: "வரைபடம் காண்",
+        cancel: "ரத்து",
+        signout: "வெளியேறு",
+        goBusy: "பிஸியாக்க",
+        goFree: "கிடைக்கும்",
+        closeMap: "வரைபடம் மூடு"
+      },
+      te: {
+        brand: "తన పని",
+        navTasks: "నాకు పని",
+        navHistory: "చరిత్ర",
+        statusLabel: "ప్రస్తుత స్థితి",
+        avail: "అందుబాటులో ఉంది",
+        busy: "బిజీ",
+        start: "పని ప్రారంభించు",
+        assigned: "నియుక్తం",
+        finish: "ముగించి అప్లోడ్ చేయండి",
+        settings: "సెట్టింగ్స్",
+        language: "భాష",
+        theme: "థీమ్",
+        close: "క్లోజ్",
+        viewmap: "మ్యాప్ చూడండి",
+        cancel: "రద్దు",
+        signout: "సైన్ అవుట్",
+        goBusy: "బిజీ అవ్వండి",
+        goFree: "నిల్వకు రాబోసు",
+        closeMap: "మ్యాప్ మూసేయి"
+      },
+      kn: {
+        brand: "ಕೆಲಸಗಾರ",
+        navTasks: "ನನ್ನ ಕಾರ್ಯಗಳು",
+        navHistory: "ಇತಿಹಾಸ",
+        statusLabel: "ಪ್ರಸ್ತುತ ಸ್ಥಿತಿ",
+        avail: "ಲಭ್ಯವಿದೆ",
+        busy: "ವ್ಯಸ್ತ",
+        start: "ಕೆಲಸ ಪ್ರಾರಂಭಿಸಿ",
+        assigned: "ಹೊಂದಿಸಲಾಗಿದೆ",
+        finish: "ಪೂರ್ಣ ಮಾಡಿ ಅಪ್‍ಲೋಡ್ ಮಾಡಿ",
+        settings: "ಸೆಟಿಂಗ್‍ಗಳು",
+        language: "ಭಾಷೆ",
+        theme: "ಥೀಂ",
+        close: "ಮುಚ್ಚಿ",
+        viewmap: "ನಕ್ಷೆ ನೋಡಿ",
+        cancel: "ರದ್ದುಗೊಳಿಸಿ",
+        signout: "ಸೈನ್ ಔಟ್",
+        goBusy: "ವ್ಯಸ್ತರಾಗಿ",
+        goFree: "ಲಭ್ಯವಾಗಿರಿ",
+        closeMap: "ನಕ್ಷೆ ಮುಚ್ಚು"
+      },
+      ml: {
+        brand: "ജോലിക്കാരൻ",
+        navTasks: "എന്റെ ജോലികൾ",
+        navHistory: "ചരിത്രം",
+        statusLabel: "വർത്തമാന നില",
+        avail: "ലഭ്യമാണ്",
+        busy: "ബിസി",
+        start: "ജോലി ആരംഭിക്കുക",
+        assigned: "അയവിറുത്തിയിരിക്കുന്നു",
+        finish: "അവസാനിച്ച് അപ്‌ലോഡ് ചെയ്യുക",
+        settings: "ക്രമീകരണങ്ങൾ",
+        language: "ഭാഷ",
+        theme: "തീം",
+        close: "മൂടുക",
+        viewmap: "മാപ്പ് കാണുക",
+        cancel: "റദ്ദാക്കുക",
+        signout: "സൈൻ ഔട്ട്",
+        goBusy: "ബിസിയാവുക",
+        goFree: "ലഭ്യമാക്കുക",
+        closeMap: "മാപ്പ് അടയ്ക്കുക"
+      },
+      bn: {
+        brand: "কর্মী",
+        navTasks: "আমার কাজ",
+        navHistory: "ইতিহাস",
+        statusLabel: "বর্তমান অবস্থা",
+        avail: "উপলব্ধ",
+        busy: "ব্যস্ত",
+        start: "কাজ শুরু করুন",
+        assigned: "নিয়োগকৃত",
+        finish: "সমাপ্ত করুন এবং আপলোড করুন",
+        settings: "সেটিংস",
+        language: "ভাষা",
+        theme: "থিম",
+        close: "বন্ধ করুন",
+        viewmap: "মানচিত্র দেখুন",
+        cancel: "বাতিল",
+        signout: "সাইন আউট",
+        goBusy: "ব্যস্ত হন",
+        goFree: "উপলব্ধ করুন",
+        closeMap: "মানচিত্র বন্ধ করুন"
+      },
+      mr: {
+        brand: "कामगार",
+        navTasks: "माझी कामे",
+        navHistory: "इतिहास",
+        statusLabel: "सध्याची स्थिती",
+        avail: "उपलब्ध",
+        busy: "बिझी",
+        start: "काम सुरू करा",
+        assigned: "नेमलेले",
+        finish: "पूर्ण करा आणि अपलोड करा",
+        settings: "सेटिंग्ज",
+        language: "भाषा",
+        theme: "थीम",
+        close: "बंद करा",
+        viewmap: "नकाशा पहा",
+        cancel: "रद्द करा",
+        signout: "साइन आउट",
+        goBusy: "बिझी व्हा",
+        goFree: "उपलब्ध करा",
+        closeMap: "नकाशा बंद करा"
+      }
+    };
+
+    // Helper to apply translations to all [data-key] elements
+    function applyTranslations(lang) {
+      const map = TRANSLATIONS[lang] || TRANSLATIONS['en'];
+      document.querySelectorAll('[data-key]').forEach(el => {
+        const key = el.getAttribute('data-key');
+        if (map[key]) {
+          el.textContent = map[key];
+        }
+      });
+      // set HTML lang attribute for accessibility/screen readers
+      document.documentElement.lang = lang;
+      // Update status button text as it is dynamic
+      updateStatusButtonText();
+      // Update the Finish button text specifically (data-key="finish")
+      const finishButtons = document.querySelectorAll('.btn-finish');
+      finishButtons.forEach(btn => btn.textContent = map.finish || TRANSLATIONS['en'].finish);
     }
-  };
 
-  // Helper to apply translations to all [data-key] elements
-  function applyTranslations(lang) {
-    const map = TRANSLATIONS[lang] || TRANSLATIONS['en'];
-    document.querySelectorAll('[data-key]').forEach(el => {
-      const key = el.getAttribute('data-key');
-      if (map[key]) {
-        el.textContent = map[key];
+    function changeLanguage(lang) {
+      currentLang = lang;
+      applyTranslations(lang);
+    }
+
+    // Initialize with English
+    applyTranslations('en');
+
+    function updateStatusButtonText() {
+      const btn = document.getElementById('statusBtn');
+      if (!btn) return;
+      const t = TRANSLATIONS[currentLang] || TRANSLATIONS['en'];
+      btn.textContent = isAvailable ? (t.goBusy || 'Go Busy') : (t.goFree || 'Go Available');
+    }
+
+    function toggleStatus(forceBusy) {
+      if (forceBusy === true) isAvailable = false;
+      else if (typeof forceBusy === 'boolean') isAvailable = !forceBusy;
+      else isAvailable = !isAvailable;
+
+      const txt = document.getElementById('statusText');
+      if (isAvailable) {
+        txt.textContent = TRANSLATIONS[currentLang]?.avail || 'Available';
+        txt.style.color = 'var(--accent)';
+        document.getElementById('statusBtn').className = 'toggle-btn is-avail';
+      } else {
+        txt.textContent = TRANSLATIONS[currentLang]?.busy || 'Busy';
+        txt.style.color = '#ff3b3b';
+        document.getElementById('statusBtn').className = 'toggle-btn is-busy';
+      }
+      updateStatusButtonText();
+    }
+
+    // NAV
+    function showTab(tab) {
+      if (tab === 'tasks') {
+        document.getElementById('tasksTab').style.display = 'block';
+        document.getElementById('historyTab').classList.remove('active');
+        document.querySelector('[data-key="navTasks"]').classList.add('active');
+        document.querySelector('[data-key="navHistory"]').classList.remove('active');
+      } else {
+        document.getElementById('tasksTab').style.display = 'none';
+        document.getElementById('historyTab').classList.add('active');
+        document.querySelector('[data-key="navTasks"]').classList.remove('active');
+        document.querySelector('[data-key="navHistory"]').classList.add('active');
+      }
+    }
+
+    // Click outside to close dropdown
+    document.addEventListener('click', (e) => {
+      const profile = document.getElementById('workerProfileBtn');
+      const dropdown = document.getElementById('profileDropdown');
+      if (!profile.contains(e.target)) dropdown.classList.remove('show');
+    });
+
+    /* SECURE AUTHENTICATION */
+    function getSession() {
+      try {
+        const sessionStr = localStorage.getItem('tarfixer_session');
+        if (!sessionStr) return null;
+        const signedSession = JSON.parse(sessionStr);
+        // Extract actual session data from signed wrapper
+        return signedSession.data || signedSession;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function signOut(e) {
+      if (e) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      // Close dropdown immediately
+      document.getElementById('profileDropdown').classList.remove('show');
+
+      if (confirm((TRANSLATIONS[currentLang]?.signout || 'Sign Out') + '?')) {
+        try {
+          await API.logout();
+        } catch (err) {
+          console.error('Logout error:', err);
+        }
+        // Clear any remaining session data
+        localStorage.removeItem('tarfixer_auth_token');
+        localStorage.removeItem('tarfixer_user_data');
+        localStorage.removeItem('tarfixer_session');
+        window.location.href = '../Login/Choose_login.html';
+      }
+    }
+
+    function loadWorkerInfo() {
+      const user = API.getUser();
+      console.log('Loading worker info, user:', user);
+
+      // Try to get name from multiple sources
+      let displayName = 'Worker';
+      let email = '';
+
+      if (user) {
+        email = user.email || '';
+        // Try different name sources
+        displayName = user.name || user.displayName || email.split('@')[0] || 'Worker';
+      }
+
+      // Also check localStorage directly in case API.getUser() is stale
+      const storedUser = localStorage.getItem('tarfixer_user_data');
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.name) displayName = parsed.name;
+          if (!email && parsed.email) email = parsed.email;
+        } catch (e) { }
+      }
+
+      document.getElementById('workerName').textContent = displayName;
+      document.getElementById('workerEmail').textContent = email;
+
+      // Generate initials
+      const initials = displayName !== 'Worker'
+        ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+        : 'W';
+      document.getElementById('workerInitials').textContent = initials;
+
+      console.log('Worker info set:', { displayName, email, initials });
+    }
+
+    async function protectDashboard() {
+      // Check if authenticated
+      if (!API.isAuthenticated()) {
+        console.warn('Not authenticated, redirecting to login');
+        window.location.replace('../Login/Choose_login.html?error=not_authenticated');
+        return false;
+      }
+
+      // Check user type from stored data
+      const user = API.getUser();
+      if (!user || user.userType !== 'worker') {
+        console.warn('Access denied: not a worker');
+        await API.logout();
+        window.location.replace('../Login/Choose_login.html?error=access_denied');
+        return false;
+      }
+
+      console.log('Worker authenticated, loading dashboard...');
+      return true;
+    }
+
+    // SETTINGS modal open/close
+    function openSettings(e) {
+      if (e) e.stopPropagation();
+      document.getElementById('profileDropdown').classList.remove('show');
+      document.getElementById('settingsModal').style.display = 'flex';
+      document.getElementById('settingsModal').setAttribute('aria-hidden', 'false');
+      setTimeout(() => document.getElementById('langSelect').focus(), 60);
+    }
+    function closeSettings() {
+      document.getElementById('settingsModal').style.display = 'none';
+      document.getElementById('settingsModal').setAttribute('aria-hidden', 'true');
+    }
+
+    // Click outside settings to close (backdrop)
+    const settingsModal = document.getElementById('settingsModal');
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) closeSettings();
+    });
+
+    // THEME
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+      if (taskMap) {
+        taskMap.removeLayer(tileLayerModal);
+        const isDark = !document.body.classList.contains('light-theme');
+        const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
+      }
+    }
+
+    // MAP modal logic
+    function showTaskMap(lat, lng, id) {
+      const modal = document.getElementById('mapModal');
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+
+      if (taskMap) {
+        try { taskMap.remove(); } catch (e) { }
+        taskMap = null; tileLayerModal = null;
+        document.getElementById('mapModalInner').innerHTML = '';
+      }
+
+      setTimeout(() => {
+        taskMap = L.map('mapModalInner', { attributionControl: false }).setView([lat, lng], 15);
+        const isDark = !document.body.classList.contains('light-theme');
+        const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
+
+        L.circleMarker([lat, lng], { radius: 8, fillColor: '#ff9800', color: '#fff', weight: 2, fillOpacity: 1 })
+          .addTo(taskMap)
+          .bindPopup(id)
+          .openPopup();
+
+        setTimeout(() => taskMap.invalidateSize(), 120);
+      }, 80);
+    }
+
+    function closeMapModal() {
+      const modal = document.getElementById('mapModal');
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      if (taskMap) {
+        try { taskMap.remove(); } catch (e) { }
+        taskMap = null; tileLayerModal = null;
+        document.getElementById('mapModalInner').innerHTML = '';
+      }
+    }
+
+    // close map when clicking backdrop
+    const mapModal = document.getElementById('mapModal');
+    mapModal.addEventListener('click', (e) => {
+      if (e.target === mapModal) closeMapModal();
+    });
+
+    // ESC behavior: close modals / camera
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('mapModal').style.display === 'flex') closeMapModal();
+        if (document.getElementById('settingsModal').style.display === 'flex') closeSettings();
+        if (document.getElementById('camModal').style.display === 'flex') closeCamera();
       }
     });
-    // set HTML lang attribute for accessibility/screen readers
-    document.documentElement.lang = lang;
-    // Update status button text as it is dynamic
-    updateStatusButtonText();
-    // Update the Finish button text specifically (data-key="finish")
-    const finishButtons = document.querySelectorAll('.btn-finish');
-    finishButtons.forEach(btn => btn.textContent = map.finish || TRANSLATIONS['en'].finish);
-  }
 
-  function changeLanguage(lang) {
-    currentLang = lang;
-    applyTranslations(lang);
-  }
-
-  // Initialize with English
-  applyTranslations('en');
-
-  function updateStatusButtonText() {
-    const btn = document.getElementById('statusBtn');
-    if (!btn) return;
-    const t = TRANSLATIONS[currentLang] || TRANSLATIONS['en'];
-    btn.textContent = isAvailable ? (t.goBusy || 'Go Busy') : (t.goFree || 'Go Available');
-  }
-
-  function toggleStatus(forceBusy) {
-    if (forceBusy === true) isAvailable = false;
-    else if (typeof forceBusy === 'boolean') isAvailable = !forceBusy;
-    else isAvailable = !isAvailable;
-
-    const txt = document.getElementById('statusText');
-    if (isAvailable) {
-      txt.textContent = TRANSLATIONS[currentLang]?.avail || 'Available';
-      txt.style.color = 'var(--accent)';
-      document.getElementById('statusBtn').className = 'toggle-btn is-avail';
-    } else {
-      txt.textContent = TRANSLATIONS[currentLang]?.busy || 'Busy';
-      txt.style.color = '#ff3b3b';
-      document.getElementById('statusBtn').className = 'toggle-btn is-busy';
-    }
-    updateStatusButtonText();
-  }
-
-  // NAV
-  function showTab(tab) {
-    if (tab === 'tasks') {
-      document.getElementById('tasksTab').style.display = 'block';
-      document.getElementById('historyTab').classList.remove('active');
-      document.querySelector('[data-key="navTasks"]').classList.add('active');
-      document.querySelector('[data-key="navHistory"]').classList.remove('active');
-    } else {
-      document.getElementById('tasksTab').style.display = 'none';
-      document.getElementById('historyTab').classList.add('active');
-      document.querySelector('[data-key="navTasks"]').classList.remove('active');
-      document.querySelector('[data-key="navHistory"]').classList.add('active');
-    }
-  }
-
-  // Click outside to close dropdown
-  document.addEventListener('click', (e) => {
-    const profile = document.getElementById('workerProfileBtn');
-    const dropdown = document.getElementById('profileDropdown');
-    if (!profile.contains(e.target)) dropdown.classList.remove('show');
-  });
-
-  /* SECURE AUTHENTICATION */
-  function getSession() {
-    try {
-      const sessionStr = localStorage.getItem('tarfixer_session');
-      if (!sessionStr) return null;
-      const signedSession = JSON.parse(sessionStr);
-      // Extract actual session data from signed wrapper
-      return signedSession.data || signedSession;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  async function signOut(e) {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    // Close dropdown immediately
-    document.getElementById('profileDropdown').classList.remove('show');
-    
-    if (confirm((TRANSLATIONS[currentLang]?.signout || 'Sign Out') + '?')) {
-      try {
-        await API.logout();
-      } catch (err) {
-        console.error('Logout error:', err);
-      }
-      // Clear any remaining session data
-      localStorage.removeItem('tarfixer_auth_token');
-      localStorage.removeItem('tarfixer_user_data');
-      localStorage.removeItem('tarfixer_session');
-      window.location.href = '../Login/Choose_login.html';
-    }
-  }
-  
-  function loadWorkerInfo() {
-    const user = API.getUser();
-    console.log('Loading worker info, user:', user);
-    
-    // Try to get name from multiple sources
-    let displayName = 'Worker';
-    let email = '';
-    
-    if (user) {
-      email = user.email || '';
-      // Try different name sources
-      displayName = user.name || user.displayName || email.split('@')[0] || 'Worker';
-    }
-    
-    // Also check localStorage directly in case API.getUser() is stale
-    const storedUser = localStorage.getItem('tarfixer_user_data');
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.name) displayName = parsed.name;
-        if (!email && parsed.email) email = parsed.email;
-      } catch(e) {}
-    }
-    
-    document.getElementById('workerName').textContent = displayName;
-    document.getElementById('workerEmail').textContent = email;
-    
-    // Generate initials
-    const initials = displayName !== 'Worker' 
-      ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) 
-      : 'W';
-    document.getElementById('workerInitials').textContent = initials;
-    
-    console.log('Worker info set:', { displayName, email, initials });
-  }
-
-  async function protectDashboard() {
-    // Check if authenticated
-    if (!API.isAuthenticated()) {
-      console.warn('Not authenticated, redirecting to login');
-      window.location.replace('../Login/Choose_login.html?error=not_authenticated');
-      return false;
-    }
-
-    // Check user type from stored data
-    const user = API.getUser();
-    if (!user || user.userType !== 'worker') {
-      console.warn('Access denied: not a worker');
-      await API.logout();
-      window.location.replace('../Login/Choose_login.html?error=access_denied');
-      return false;
-    }
-    
-    console.log('Worker authenticated, loading dashboard...');
-    return true;
-  }
-
-  // SETTINGS modal open/close
-  function openSettings(e) {
-    if(e) e.stopPropagation();
-    document.getElementById('profileDropdown').classList.remove('show');
-    document.getElementById('settingsModal').style.display = 'flex';
-    document.getElementById('settingsModal').setAttribute('aria-hidden','false');
-    setTimeout(()=> document.getElementById('langSelect').focus(), 60);
-  }
-  function closeSettings() {
-    document.getElementById('settingsModal').style.display = 'none';
-    document.getElementById('settingsModal').setAttribute('aria-hidden','true');
-  }
-
-  // Click outside settings to close (backdrop)
-  const settingsModal = document.getElementById('settingsModal');
-  settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) closeSettings();
-  });
-
-  // THEME
-  function toggleTheme() {
-    document.body.classList.toggle('light-theme');
-    if(taskMap) {
-      taskMap.removeLayer(tileLayerModal);
-      const isDark = !document.body.classList.contains('light-theme');
-      const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
-    }
-  }
-
-  // MAP modal logic
-  function showTaskMap(lat, lng, id) {
-    const modal = document.getElementById('mapModal');
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden','false');
-
-    if (taskMap) {
-      try { taskMap.remove(); } catch (e) {}
-      taskMap = null; tileLayerModal = null;
-      document.getElementById('mapModalInner').innerHTML = '';
-    }
-
-    setTimeout(() => {
-      taskMap = L.map('mapModalInner', { attributionControl:false }).setView([lat, lng], 15);
-      const isDark = !document.body.classList.contains('light-theme');
-      const url = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-      tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
-
-      L.circleMarker([lat, lng], {radius:8, fillColor:'#ff9800', color:'#fff', weight:2, fillOpacity:1})
-        .addTo(taskMap)
-        .bindPopup(id)
-        .openPopup();
-
-      setTimeout(()=> taskMap.invalidateSize(), 120);
-    }, 80);
-  }
-
-  function closeMapModal() {
-    const modal = document.getElementById('mapModal');
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden','true');
-    if(taskMap) {
-      try { taskMap.remove(); } catch(e) {}
-      taskMap = null; tileLayerModal = null;
-      document.getElementById('mapModalInner').innerHTML = '';
-    }
-  }
-
-  // close map when clicking backdrop
-  const mapModal = document.getElementById('mapModal');
-  mapModal.addEventListener('click', (e) => {
-    if (e.target === mapModal) closeMapModal();
-  });
-
-  // ESC behavior: close modals / camera
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      if(document.getElementById('mapModal').style.display === 'flex') closeMapModal();
-      if(document.getElementById('settingsModal').style.display === 'flex') closeSettings();
-      if(document.getElementById('camModal').style.display === 'flex') closeCamera();
-    }
-  });
-
-  // START WORK -> show Finish button and set busy
-  // START WORK: update status to in_progress
-  async function startWork(taskId) {
-    try {
-      const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/reports/${taskId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: 'in_progress' })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update task status');
-      }
-      
-      // Refresh tasks to show updated status
-      await fetchMyTasks();
-      toggleStatus(true); // set worker busy
-      
-    } catch (error) {
-      console.error('Error starting work:', error);
-      alert('Failed to start work. Please try again.');
-    }
-  }
-
-  // FINISH & UPLOAD flow
-  function finishAndUpload(taskId) {
-    currentFinishingTask = taskId;
-    openCameraForFinal();
-  }
-
-  // CAMERA functions (final photo only)
-  function openCameraForFinal() {
-    const camModal = document.getElementById('camModal');
-    camModal.style.display = 'flex';
-    camModal.setAttribute('aria-hidden','false');
-
-    const video = document.getElementById('cameraView');
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      .then(stream => {
-        activeCameraStream = stream;
-        video.srcObject = stream;
-        video.play().catch(()=>{});
-      })
-      .catch(err => {
-        alert('Camera access denied or not available.');
-        closeCamera();
-      });
-  }
-
-  function closeCamera() {
-    const camModal = document.getElementById('camModal');
-    camModal.style.display = 'none';
-    camModal.setAttribute('aria-hidden','true');
-    const video = document.getElementById('cameraView');
-    if (video && video.srcObject) {
-      const tracks = video.srcObject.getTracks();
-      tracks.forEach(t => t.stop());
-    }
-    activeCameraStream = null;
-  }
-
-  // Capture final photo and verify GPS + YOLO before upload
-  async function captureFinalPhoto() {
-    const video = document.getElementById('cameraView');
-    if (!video || !video.srcObject) { alert('Camera not ready.'); return; }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-    if (!navigator.geolocation) {
-      alert('GPS required to verify location. Enable location and try again.');
-      return;
-    }
-    
-    // Show analyzing message
-    const camControls = document.querySelector('.cam-controls');
-    const originalControls = camControls.innerHTML;
-    camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🔍 Analyzing repaired road...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Please wait while AI verifies the repair</div></div>';
-
-    // Get current GPS position
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const currentLat = pos.coords.latitude;
-      const currentLng = pos.coords.longitude;
-      
-      // Get original task location and damage info
-      const taskCard = document.getElementById(`task-${currentFinishingTask}`);
-      const originalLat = parseFloat(taskCard?.dataset.lat || 0);
-      const originalLng = parseFloat(taskCard?.dataset.lng || 0);
-      
-      // Calculate distance between current location and task location (in meters)
-      const distance = calculateDistance(currentLat, currentLng, originalLat, originalLng);
-      
-      // Allow 500 meters tolerance (adjust as needed)
-      const MAX_DISTANCE = 500;
-      
-      if (distance > MAX_DISTANCE) {
-        camControls.innerHTML = originalControls;
-        closeCamera();
-        alert(`❌ Location verification failed!\n\nYou are ${distance.toFixed(0)}m away from the task location.\nMaximum allowed distance: ${MAX_DISTANCE}m\n\nPlease go to the correct location and try again.`);
-        return;
-      }
-      
-      // GPS verified - now verify with YOLO that damage is repaired
+    // START WORK -> show Finish button and set busy
+    // START WORK: update status to in_progress
+    async function startWork(taskId) {
       try {
         const token = getToken();
-        
-        // First, analyze the after image with YOLO
-        camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🤖 Running YOLO damage detection...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Verifying repair quality</div></div>';
-        
-        // Convert dataUrl to blob for YOLO API
-        const blob = await fetch(dataUrl).then(r => r.blob());
-        const formData = new FormData();
-        formData.append('image', blob, 'after_image.jpg');
-        
-        const yoloResponse = await fetch(`${API_BASE_URL}/detect`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
-        
-        let afterDamagePercentage = 0;
-        let yoloVerified = false;
-        let yoloMessage = '';
-        
-        if (yoloResponse.ok) {
-          const yoloData = await yoloResponse.json();
-          afterDamagePercentage = yoloData.damage_percentage || 0;
-          
-          // Repair is verified if damage is below 30%
-          const MAX_ALLOWED_DAMAGE = 30;
-          
-          if (afterDamagePercentage < MAX_ALLOWED_DAMAGE) {
-            yoloVerified = true;
-            yoloMessage = `✅ Repair verified! Remaining damage: ${afterDamagePercentage.toFixed(1)}%`;
-          } else {
-            yoloVerified = false;
-            yoloMessage = `❌ Repair incomplete! Detected damage: ${afterDamagePercentage.toFixed(1)}%\nDamage must be below ${MAX_ALLOWED_DAMAGE}% to mark as complete.`;
-          }
-        } else {
-          // YOLO failed - allow submission but flag it
-          yoloVerified = true;
-          yoloMessage = '⚠️ Could not verify with AI (service unavailable). Submitting for manual review.';
-          afterDamagePercentage = -1; // Flag as unverified
-        }
-        
-        if (!yoloVerified) {
-          camControls.innerHTML = originalControls;
-          closeCamera();
-          alert(yoloMessage + '\n\nPlease complete the repair work and try again.');
-          return;
-        }
-        
-        // YOLO verified - proceed with upload
-        camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">📤 Uploading completion...</div></div>';
-        
-        // Update report status to 'done' with the after image
-        const response = await fetch(`${API_BASE_URL}/reports/${currentFinishingTask}/complete`, {
-          method: 'POST',
+        const response = await fetch(`${API_BASE_URL}/reports/${taskId}/status`, {
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            after_image: dataUrl,
-            completion_lat: currentLat,
-            completion_lng: currentLng,
-            completion_time: new Date().toISOString(),
-            after_damage_percentage: afterDamagePercentage
-          })
+          body: JSON.stringify({ status: 'in_progress' })
         });
-        
-        closeCamera();
-        
-        if (response.ok) {
-          const damageMsg = afterDamagePercentage >= 0 
-            ? `AI Verification: ${afterDamagePercentage.toFixed(1)}% damage remaining` 
-            : 'Pending manual review';
-          alert(`✅ Task completed successfully!\n\n📍 Location verified: ${distance.toFixed(0)}m from task.\n🤖 ${damageMsg}\n📷 Photo uploaded for officer review.`);
-          
-          // Add to history
-          const historyTab = document.getElementById('historyTab');
-          const timeLabel = new Date().toLocaleString();
-          historyTab.insertAdjacentHTML('afterbegin', `<div class="history-item"><div><b>TF-${currentFinishingTask.substring(0,6)}</b><br><small style="color:var(--muted)">Completed</small></div><span style="color:var(--accent)">${timeLabel}</span></div>`);
-          
-          // Refresh tasks (completed one should be removed)
-          await fetchMyTasks();
-          toggleStatus(false); // set worker available
-          
-        } else {
-          const errorData = await response.json();
-          alert('❌ Failed to submit completion: ' + (errorData.error || 'Unknown error'));
+
+        if (!response.ok) {
+          throw new Error('Failed to update task status');
         }
-        
+
+        // Refresh tasks to show updated status
+        await fetchMyTasks();
+        toggleStatus(true); // set worker busy
+
       } catch (error) {
-        console.error('Error completing task:', error);
-        closeCamera();
-        alert('❌ Failed to complete task. Please try again.');
+        console.error('Error starting work:', error);
+        alert('Failed to start work. Please try again.');
       }
-      
-      currentFinishingTask = null;
-
-    }, (err) => {
-      alert('GPS permission denied. Please enable location and try again.');
-    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-  }
-  
-  // Calculate distance between two GPS coordinates (Haversine formula)
-  function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in meters
-  }
-
-  function markTaskCompleted(taskId, time) {
-    // This is now handled by fetchMyTasks() refresh
-  }
-
-  // Accessibility / small fixes: prevent clicks inside modal content from closing modal
-  document.querySelectorAll('.modal, .map-modal .box').forEach(el => {
-    el.addEventListener('click', e => e.stopPropagation());
-  });
-
-  // INIT: set initial translations
-  applyTranslations('en');
-  
-  // Protect dashboard and load user info on page load
-  window.addEventListener('load', async () => {
-    // Clear redirect flag since we successfully loaded the dashboard
-    sessionStorage.removeItem('just_redirected');
-    
-    // Protect dashboard - only workers can access
-    const isProtected = await protectDashboard();
-    if (!isProtected) {
-      return;
     }
-    
-    // Load worker information
-    loadWorkerInfo();
-    
-    // Fetch tasks assigned to this worker
-    await fetchMyTasks();
+
+    // FINISH & UPLOAD flow
+    function finishAndUpload(taskId) {
+      currentFinishingTask = taskId;
+      openCameraForFinal();
+    }
+
+    // CAMERA functions (final photo only)
+    function openCameraForFinal() {
+      const camModal = document.getElementById('camModal');
+      camModal.style.display = 'flex';
+      camModal.setAttribute('aria-hidden', 'false');
+
+      const video = document.getElementById('cameraView');
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        .then(stream => {
+          activeCameraStream = stream;
+          video.srcObject = stream;
+          video.play().catch(() => { });
+        })
+        .catch(err => {
+          alert('Camera access denied or not available.');
+          closeCamera();
+        });
+    }
+
+    function closeCamera() {
+      const camModal = document.getElementById('camModal');
+      camModal.style.display = 'none';
+      camModal.setAttribute('aria-hidden', 'true');
+      const video = document.getElementById('cameraView');
+      if (video && video.srcObject) {
+        const tracks = video.srcObject.getTracks();
+        tracks.forEach(t => t.stop());
+      }
+      activeCameraStream = null;
+    }
+
+    // Capture final photo and verify GPS + YOLO before upload
+    async function captureFinalPhoto() {
+      const video = document.getElementById('cameraView');
+      if (!video || !video.srcObject) { alert('Camera not ready.'); return; }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      if (!navigator.geolocation) {
+        alert('GPS required to verify location. Enable location and try again.');
+        return;
+      }
+
+      // Show analyzing message
+      const camControls = document.querySelector('.cam-controls');
+      const originalControls = camControls.innerHTML;
+      camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🔍 Analyzing repaired road...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Please wait while AI verifies the repair</div></div>';
+
+      // Get current GPS position
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const currentLat = pos.coords.latitude;
+        const currentLng = pos.coords.longitude;
+
+        // Get original task location and damage info
+        const taskCard = document.getElementById(`task-${currentFinishingTask}`);
+        const originalLat = parseFloat(taskCard?.dataset.lat || 0);
+        const originalLng = parseFloat(taskCard?.dataset.lng || 0);
+
+        // Calculate distance between current location and task location (in meters)
+        const distance = calculateDistance(currentLat, currentLng, originalLat, originalLng);
+
+        // Allow 500 meters tolerance (adjust as needed)
+        const MAX_DISTANCE = 500;
+
+        if (distance > MAX_DISTANCE) {
+          camControls.innerHTML = originalControls;
+          closeCamera();
+          alert(`❌ Location verification failed!\n\nYou are ${distance.toFixed(0)}m away from the task location.\nMaximum allowed distance: ${MAX_DISTANCE}m\n\nPlease go to the correct location and try again.`);
+          return;
+        }
+
+        // GPS verified - now verify with YOLO that damage is repaired
+        try {
+          const token = getToken();
+
+          // First, analyze the after image with YOLO
+          camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">🤖 Running YOLO damage detection...</div><div style="font-size:14px;margin-top:10px;color:#aaa;">Verifying repair quality</div></div>';
+
+          // Convert dataUrl to blob for YOLO API
+          const blob = await fetch(dataUrl).then(r => r.blob());
+          const formData = new FormData();
+          formData.append('image', blob, 'after_image.jpg');
+
+          const yoloResponse = await fetch(`${API_BASE_URL}/detect`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          let afterDamagePercentage = 0;
+          let yoloVerified = false;
+          let yoloMessage = '';
+
+          if (yoloResponse.ok) {
+            const yoloData = await yoloResponse.json();
+            afterDamagePercentage = yoloData.damage_percentage || 0;
+
+            // Repair is verified if damage is below 30%
+            const MAX_ALLOWED_DAMAGE = 30;
+
+            if (afterDamagePercentage < MAX_ALLOWED_DAMAGE) {
+              yoloVerified = true;
+              yoloMessage = `✅ Repair verified! Remaining damage: ${afterDamagePercentage.toFixed(1)}%`;
+            } else {
+              yoloVerified = false;
+              yoloMessage = `❌ Repair incomplete! Detected damage: ${afterDamagePercentage.toFixed(1)}%\nDamage must be below ${MAX_ALLOWED_DAMAGE}% to mark as complete.`;
+            }
+          } else {
+            // YOLO failed - allow submission but flag it
+            yoloVerified = true;
+            yoloMessage = '⚠️ Could not verify with AI (service unavailable). Submitting for manual review.';
+            afterDamagePercentage = -1; // Flag as unverified
+          }
+
+          if (!yoloVerified) {
+            camControls.innerHTML = originalControls;
+            closeCamera();
+            alert(yoloMessage + '\n\nPlease complete the repair work and try again.');
+            return;
+          }
+
+          // YOLO verified - proceed with upload
+          camControls.innerHTML = '<div style="color:#fff;text-align:center;padding:20px;"><div style="font-size:18px;">📤 Uploading completion...</div></div>';
+
+          // Update report status to 'done' with the after image
+          const response = await fetch(`${API_BASE_URL}/reports/${currentFinishingTask}/complete`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              after_image: dataUrl,
+              completion_lat: currentLat,
+              completion_lng: currentLng,
+              completion_time: new Date().toISOString(),
+              after_damage_percentage: afterDamagePercentage
+            })
+          });
+
+          closeCamera();
+
+          if (response.ok) {
+            const damageMsg = afterDamagePercentage >= 0
+              ? `AI Verification: ${afterDamagePercentage.toFixed(1)}% damage remaining`
+              : 'Pending manual review';
+            alert(`✅ Task completed successfully!\n\n📍 Location verified: ${distance.toFixed(0)}m from task.\n🤖 ${damageMsg}\n📷 Photo uploaded for officer review.`);
+
+            // Add to history
+            const historyTab = document.getElementById('historyTab');
+            const timeLabel = new Date().toLocaleString();
+            historyTab.insertAdjacentHTML('afterbegin', `<div class="history-item"><div><b>TF-${currentFinishingTask.substring(0, 6)}</b><br><small style="color:var(--muted)">Completed</small></div><span style="color:var(--accent)">${timeLabel}</span></div>`);
+
+            // Refresh tasks (completed one should be removed)
+            await fetchMyTasks();
+            toggleStatus(false); // set worker available
+
+          } else {
+            const errorData = await response.json();
+            alert('❌ Failed to submit completion: ' + (errorData.error || 'Unknown error'));
+          }
+
+        } catch (error) {
+          console.error('Error completing task:', error);
+          closeCamera();
+          alert('❌ Failed to complete task. Please try again.');
+        }
+
+        currentFinishingTask = null;
+
+      }, (err) => {
+        alert('GPS permission denied. Please enable location and try again.');
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    }
+
+    // Calculate distance between two GPS coordinates (Haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000; // Earth's radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in meters
+    }
+
+    function markTaskCompleted(taskId, time) {
+      // This is now handled by fetchMyTasks() refresh
+    }
+
+    // Accessibility / small fixes: prevent clicks inside modal content from closing modal
+    document.querySelectorAll('.modal, .map-modal .box').forEach(el => {
+      el.addEventListener('click', e => e.stopPropagation());
+    });
+
+    // INIT: set initial translations
+    applyTranslations('en');
+
+    // Protect dashboard and load user info on page load
+    window.addEventListener('load', async () => {
+      // Clear redirect flag since we successfully loaded the dashboard
+      sessionStorage.removeItem('just_redirected');
+
+      // Protect dashboard - only workers can access
+      const isProtected = await protectDashboard();
+      if (!isProtected) {
+        return;
+      }
+
+      // Load worker information
+      loadWorkerInfo();
+
+      // Fetch tasks assigned to this worker
+      await fetchMyTasks();
+    });
+  </script>
+
+</body>
+
+</html>
