@@ -1079,8 +1079,12 @@
         document.getElementById('mapModalInner').innerHTML = '';
       }
 
+      const isInvalid = !lat && !lng || (lat === 0 && lng === 0);
+      const displayLat = isInvalid ? 11.1271 : lat;
+      const displayLng = isInvalid ? 78.6569 : lng;
+
       setTimeout(() => {
-        taskMap = L.map('mapModalInner', { attributionControl: false }).setView([lat, lng], 15);
+        taskMap = L.map('mapModalInner', { attributionControl: false }).setView([displayLat, displayLng], isInvalid ? 7 : 15);
 
         // Use Google Maps (Roadmap) tiles as requested
         const url = 'http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}';
@@ -1091,10 +1095,17 @@
           attribution: attribution
         }).addTo(taskMap);
 
-        L.circleMarker([lat, lng], { radius: 8, fillColor: '#ff9800', color: '#fff', weight: 2, fillOpacity: 1 })
-          .addTo(taskMap)
-          .bindPopup(id)
-          .openPopup();
+        if (isInvalid) {
+          L.marker([displayLat, displayLng])
+            .addTo(taskMap)
+            .bindPopup("<b>Location Data Missing</b><br>Showing default location (Tamil Nadu)")
+            .openPopup();
+        } else {
+          L.circleMarker([displayLat, displayLng], { radius: 8, fillColor: '#ff9800', color: '#fff', weight: 2, fillOpacity: 1 })
+            .addTo(taskMap)
+            .bindPopup(id)
+            .openPopup();
+        }
 
         setTimeout(() => taskMap.invalidateSize(), 120);
       }, 80);
