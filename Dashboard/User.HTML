@@ -1424,15 +1424,23 @@
           annotatedImage: detectionResult.annotated_image || capturedImageData
         };
 
-        // Show appropriate submit button based on severity
-        if (severity < 20) {
-          submitButtons.innerHTML = `<p style="color:var(--accent); font-size:15px; margin-top:10px;">${pack.notSevere}</p>`;
-        } else if (severity >= 60) {
-          submitButtons.innerHTML = `<button class="btn btn-red" onclick="submitReportFromUI(${severity})">${pack.submitSevere}</button>`;
+        // AUTO-SUBMIT: If severity >= 60%, automatically submit the report
+        if (severity >= 60) {
+          submitButtons.innerHTML = `<p style="color:#ff7070; font-size:15px; margin-top:10px;">⚠️ Severe damage detected (${severity}%)! Auto-submitting report...</p>`;
+          
+          // Auto-submit after a short delay to show the message
+          setTimeout(() => {
+            submitReportFromUI(severity);
+          }, 1500);
         } else if (severity >= 30) {
-          submitButtons.innerHTML = `<button class="btn btn-yellow" onclick="submitReportFromUI(${severity})">${pack.submitMedium}</button>`;
+          // Medium severity - show info but don't auto-submit
+          submitButtons.innerHTML = `<p style="color:#ffa500; font-size:15px; margin-top:10px;">⚠️ Medium damage detected (${severity}%). Report not auto-submitted (below 60% threshold).</p>`;
+        } else if (severity >= 20) {
+          // Low severity - show info
+          submitButtons.innerHTML = `<p style="color:#00e6a8; font-size:15px; margin-top:10px;">✅ Low damage detected (${severity}%). No action needed.</p>`;
         } else {
-          submitButtons.innerHTML = `<button class="btn btn-green" onclick="submitReportFromUI(${severity})">${pack.submitLow}</button>`;
+          // Minimal/no damage
+          submitButtons.innerHTML = `<p style="color:var(--accent); font-size:15px; margin-top:10px;">${pack.notSevere}</p>`;
         }
 
         // Show detection info
