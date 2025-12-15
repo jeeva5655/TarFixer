@@ -118,7 +118,7 @@
     <div class="header">
       <h2 id="pageTitle" data-key="tasks">My Tasks</h2>
 
-      <div class="worker-profile" id="workerProfileBtn" onclick="toggleProfileDropdown()">
+      <div class="worker-profile" id="workerProfileBtn" onclick="toggleProfileDropdown(event)">
         <div style="text-align:right">
           <div style="font-weight:700; font-size: 14px;" id="workerName">Worker</div>
           <div style="font-size:11px;color:var(--accent); font-weight:700" id="workerEmail"></div>
@@ -127,7 +127,7 @@
 
         <div class="dropdown-menu" id="profileDropdown" role="menu" aria-hidden="true">
           <div class="dropdown-item" onclick="openSettings(event)"><i class="fa-solid fa-gear"></i> <span data-key="settings">Settings</span></div>
-          <div class="dropdown-item" onclick="signOut()" style="color:#ff3b3b"><i class="fa-solid fa-right-from-bracket"></i> <span data-key="signout">Sign Out</span></div>
+          <div class="dropdown-item" onclick="signOut(event)" style="color:#ff3b3b"><i class="fa-solid fa-right-from-bracket"></i> <span data-key="signout">Sign Out</span></div>
         </div>
       </div>
     </div>
@@ -209,7 +209,11 @@
   let tasksData = []; // Store task data from API
   
   // PROFILE DROPDOWN - Define early to avoid ReferenceError
-  function toggleProfileDropdown() {
+  function toggleProfileDropdown(e) {
+    // Don't toggle if clicking on dropdown items (they handle themselves)
+    if (e && e.target.closest('.dropdown-item')) {
+      return;
+    }
     const dd = document.getElementById('profileDropdown');
     if (dd) dd.classList.toggle('show');
   }
@@ -572,9 +576,24 @@
     }
   }
 
-  async function signOut() {
+  async function signOut(e) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    // Close dropdown immediately
+    document.getElementById('profileDropdown').classList.remove('show');
+    
     if (confirm((TRANSLATIONS[currentLang]?.signout || 'Sign Out') + '?')) {
-      await API.logout();
+      try {
+        await API.logout();
+      } catch (err) {
+        console.error('Logout error:', err);
+      }
+      // Clear any remaining session data
+      localStorage.removeItem('tarfixer_auth_token');
+      localStorage.removeItem('tarfixer_user_data');
+      localStorage.removeItem('tarfixer_session');
       window.location.href = '../Login/Choose_login.html';
     }
   }
