@@ -134,22 +134,8 @@
     <!-- TASKS TAB -->
     <div id="tasksTab">
       <div id="taskList">
-        <!-- Example Task (duplicate for more) -->
-        <div class="task-card" id="task-TF002">
-          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23333' width='150' height='150'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='12' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E" class="task-img" alt="task image">
-          <div class="task-info">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <h3>TF-002</h3>
-              <span class="status-text" style="color:orange; font-weight:bold" data-key="assigned">ASSIGNED</span>
-            </div>
-            <p style="color:var(--muted); font-size:14px;">OMR Road, Tech Park Gate</p>
-            <div>
-              <button class="btn btn-start" onclick="startWork(this)" data-key="start">Start Work</button>
-              <button class="btn btn-map" onclick="showTaskMap(12.9716,80.2446,'TF-002')" data-key="viewmap">View Map</button>
-              <button class="btn btn-finish" onclick="finishAndUpload('TF-002')" id="finish-TF002" data-key="finish">Finish &amp; Upload</button>
-            </div>
-          </div>
-        </div>
+        <!-- Tasks will be loaded from API -->
+        <div style="text-align:center; color:var(--muted); margin-top:40px;">Loading tasks...</div>
       </div>
     </div>
 
@@ -219,6 +205,89 @@
   let taskMap = null, tileLayerModal = null;
   let activeCameraStream = null;
   let currentFinishingTask = null;
+  let tasksData = []; // Store task data from API
+  
+  // API Client
+  const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:5000/api'
+    : 'https://tarfixer-backend.onrender.com/api';
+  
+  // Get auth token
+  function getToken() {
+    return localStorage.getItem('tarfixer_auth_token');
+  }
+  
+  // Fetch tasks assigned to this worker
+  async function fetchMyTasks() {
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">Loading tasks...</div>';
+    
+    try {
+      const token = getToken();
+      if (!token) {
+        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;">Not logged in. Please login again.</div>';
+        return;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/workers/tasks`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+      
+      const data = await response.json();
+      tasksData = data || [];
+      
+      // Filter out completed/resolved tasks
+      const activeTasks = tasksData.filter(t => t.status === 'assigned' || t.status === 'in_progress');
+      
+      if (activeTasks.length === 0) {
+        taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">No pending tasks assigned to you.</div>';
+        return;
+      }
+      
+      // Render tasks
+      taskList.innerHTML = '';
+      activeTasks.forEach(task => {
+        const taskId = task.id;
+        const lat = task.latitude || 0;
+        const lng = task.longitude || 0;
+        const location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        const imgSrc = task.annotated_image || task.original_image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect fill='%23333' width='150' height='150'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='12' x='50%25' y='50%25' text-anchor='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+        
+        const statusLabel = task.status === 'in_progress' ? 'IN PROGRESS' : 'ASSIGNED';
+        const statusColor = task.status === 'in_progress' ? '#3b82f6' : 'orange';
+        const showStart = task.status === 'assigned';
+        const showFinish = task.status === 'in_progress';
+        
+        const cardHtml = `
+          <div class="task-card" id="task-${taskId}" data-lat="${lat}" data-lng="${lng}">
+            <img src="${imgSrc}" class="task-img" alt="task image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27150%27 height=%27150%27%3E%3Crect fill=%27%23333%27 width=%27150%27 height=%27150%27/%3E%3C/svg%3E'">
+            <div class="task-info">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>TF-${taskId.substring(0,6)}</h3>
+                <span class="status-text" style="color:${statusColor}; font-weight:bold">${statusLabel}</span>
+              </div>
+              <p style="color:var(--muted); font-size:14px;">${location}</p>
+              <p style="color:var(--muted); font-size:12px;">Severity: ${task.severity || task.damage_percentage || 'N/A'}%</p>
+              <div>
+                <button class="btn btn-start" onclick="startWork('${taskId}')" style="display:${showStart ? 'inline-block' : 'none'}">Start Work</button>
+                <button class="btn btn-map" onclick="showTaskMap(${lat},${lng},'TF-${taskId.substring(0,6)}')">View Map</button>
+                <button class="btn btn-finish" onclick="finishAndUpload('${taskId}')" style="display:${showFinish ? 'inline-block' : 'none'}">Finish & Upload</button>
+              </div>
+            </div>
+          </div>
+        `;
+        taskList.insertAdjacentHTML('beforeend', cardHtml);
+      });
+      
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;">Failed to load tasks. Please try again.</div>';
+    }
+  }
 
   // TRANSLATIONS: 8 languages (keys used across UI)
   const TRANSLATIONS = {
@@ -606,17 +675,34 @@
   });
 
   // START WORK -> show Finish button and set busy
-  function startWork(btn) {
-    btn.style.display = 'none';
-    const card = btn.closest('.task-card');
-    const finishBtn = card.querySelector('.btn-finish');
-    if (finishBtn) finishBtn.style.display = 'inline-block';
-    const statusTextEl = card.querySelector('.status-text');
-    if (statusTextEl) { statusTextEl.textContent = (TRANSLATIONS[currentLang]?.assigned || 'ONGOING'); statusTextEl.style.color = '#3b82f6'; }
-    toggleStatus(true); // set worker busy
+  // START WORK: update status to in_progress
+  async function startWork(taskId) {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/reports/${taskId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'in_progress' })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update task status');
+      }
+      
+      // Refresh tasks to show updated status
+      await fetchMyTasks();
+      toggleStatus(true); // set worker busy
+      
+    } catch (error) {
+      console.error('Error starting work:', error);
+      alert('Failed to start work. Please try again.');
+    }
   }
 
-  // FINISH & UPLOAD flow (Option C)
+  // FINISH & UPLOAD flow
   function finishAndUpload(taskId) {
     currentFinishingTask = taskId;
     openCameraForFinal();
@@ -653,8 +739,8 @@
     activeCameraStream = null;
   }
 
-  // Capture final photo and "upload"
-  function captureFinalPhoto() {
+  // Capture final photo and verify GPS before upload
+  async function captureFinalPhoto() {
     const video = document.getElementById('cameraView');
     if (!video || !video.srcObject) { alert('Camera not ready.'); return; }
 
@@ -666,49 +752,97 @@
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
     if (!navigator.geolocation) {
-      alert((TRANSLATIONS[currentLang]?.language ? '' : '') + 'GPS required to attach location. Enable location and try again.');
+      alert('GPS required to verify location. Enable location and try again.');
       return;
     }
 
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const payload = {
-        taskId: currentFinishingTask,
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        timestamp: new Date().toISOString(),
-        imageBase64: dataUrl.split(',')[1]
-      };
-
-      closeCamera();
-      setTimeout(() => {
-        alert((TRANSLATIONS[currentLang]?.finish || 'Final repaired photo uploaded to officer.') + '\nTask: ' + payload.taskId + '\nLat: ' + payload.lat.toFixed(4) + '\nLng: ' + payload.lng.toFixed(4));
-        markTaskCompleted(payload.taskId, payload.timestamp);
-      }, 700);
+    // Get current GPS position
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const currentLat = pos.coords.latitude;
+      const currentLng = pos.coords.longitude;
+      
+      // Get original task location
+      const taskCard = document.getElementById(`task-${currentFinishingTask}`);
+      const originalLat = parseFloat(taskCard?.dataset.lat || 0);
+      const originalLng = parseFloat(taskCard?.dataset.lng || 0);
+      
+      // Calculate distance between current location and task location (in meters)
+      const distance = calculateDistance(currentLat, currentLng, originalLat, originalLng);
+      
+      // Allow 500 meters tolerance (adjust as needed)
+      const MAX_DISTANCE = 500;
+      
+      if (distance > MAX_DISTANCE) {
+        closeCamera();
+        alert(`❌ Location verification failed!\n\nYou are ${distance.toFixed(0)}m away from the task location.\nMaximum allowed distance: ${MAX_DISTANCE}m\n\nPlease go to the correct location and try again.`);
+        return;
+      }
+      
+      // GPS verified - proceed with upload
+      try {
+        const token = getToken();
+        
+        // Update report status to 'done' with the after image
+        const response = await fetch(`${API_BASE_URL}/reports/${currentFinishingTask}/complete`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            after_image: dataUrl,
+            completion_lat: currentLat,
+            completion_lng: currentLng,
+            completion_time: new Date().toISOString()
+          })
+        });
+        
+        closeCamera();
+        
+        if (response.ok) {
+          alert(`✅ Task completed successfully!\n\nLocation verified: ${distance.toFixed(0)}m from task.\nPhoto uploaded for officer review.`);
+          
+          // Add to history
+          const historyTab = document.getElementById('historyTab');
+          const timeLabel = new Date().toLocaleString();
+          historyTab.insertAdjacentHTML('afterbegin', `<div class="history-item"><div><b>TF-${currentFinishingTask.substring(0,6)}</b><br><small style="color:var(--muted)">Completed</small></div><span style="color:var(--accent)">${timeLabel}</span></div>`);
+          
+          // Refresh tasks (completed one should be removed)
+          await fetchMyTasks();
+          toggleStatus(false); // set worker available
+          
+        } else {
+          const errorData = await response.json();
+          alert('❌ Failed to submit completion: ' + (errorData.error || 'Unknown error'));
+        }
+        
+      } catch (error) {
+        console.error('Error completing task:', error);
+        closeCamera();
+        alert('❌ Failed to complete task. Please try again.');
+      }
+      
+      currentFinishingTask = null;
 
     }, (err) => {
       alert('GPS permission denied. Please enable location and try again.');
-    });
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+  
+  // Calculate distance between two GPS coordinates (Haversine formula)
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in meters
   }
 
   function markTaskCompleted(taskId, time) {
-    const safeId = 'task-' + (taskId || '').replace(/-/g,'');
-    const el = document.getElementById(safeId);
-    if (el) el.remove();
-
-    const list = document.getElementById('taskList');
-    if (!list.querySelector('.task-card')) {
-      list.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">No pending tasks.</div>';
-    }
-
-    const historyTab = document.getElementById('historyTab');
-    const timeLabel = time ? new Date(time).toLocaleString() : 'Just Now';
-    historyTab.insertAdjacentHTML('afterbegin', `<div class="history-item"><div><b>${taskId}</b><br><small style="color:var(--muted)">Repaired Location</small></div><span style="color:var(--accent)">${timeLabel}</span></div>`);
-
-    // set worker back to available
-    toggleStatus(false);
-
-    // reset current finishing task
-    currentFinishingTask = null;
+    // This is now handled by fetchMyTasks() refresh
   }
 
   // Accessibility / small fixes: prevent clicks inside modal content from closing modal
@@ -716,8 +850,7 @@
     el.addEventListener('click', e => e.stopPropagation());
   });
 
-  // INIT: set initial translations and hide finish buttons
-  document.querySelectorAll('.btn-finish').forEach(b => b.style.display = 'none');
+  // INIT: set initial translations
   applyTranslations('en');
   
   // Protect dashboard and load user info on page load
@@ -733,8 +866,6 @@
     
     // Load worker information
     loadWorkerInfo();
-  });
-
-</script>
-</body>
-</html>
+    
+    // Fetch tasks assigned to this worker
+    await fetchMyTasks();

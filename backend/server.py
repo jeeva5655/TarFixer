@@ -2120,6 +2120,129 @@ def update_report_status(report_id):
     
     return jsonify({'message': 'Status updated successfully'}), 200
 
+@app.route('/api/reports/<report_id>/complete', methods=['POST'])
+@require_auth(['worker'])
+def complete_report(report_id):
+    """Worker completes a task with after image and GPS verification"""
+    data = request.get_json()
+    
+    after_image = data.get('after_image', '')
+    completion_lat = data.get('completion_lat')
+    completion_lng = data.get('completion_lng')
+    completion_time = data.get('completion_time', datetime.now().isoformat())
+    
+    if not after_image:
+        return jsonify({'error': 'After image is required'}), 400
+    
+    # Get the original report to verify location
+    if USE_FIREBASE:
+        report = fb_get_report_by_id(report_id)
+    else:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('SELECT * FROM reports WHERE id = ?', (report_id,))
+        row = c.fetchone()
+        conn.close()
+        report = dict(row) if row else None
+    
+    if not report:
+        return jsonify({'error': 'Report not found'}), 404
+    
+    # Verify GPS location matches (within tolerance)
+    original_lat = report.get('latitude', 0)
+    original_lng = report.get('longitude', 0)
+    
+    if completion_lat and completion_lng:
+        # Calculate distance using Haversine formula
+        import math
+        R = 6371000  # Earth's radius in meters
+        
+        lat1, lat2 = math.radians(original_lat), math.radians(completion_lat)
+        dlat = math.radians(completion_lat - original_lat)
+        dlng = math.radians(completion_lng - original_lng)
+        
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        distance = R * c
+        
+        MAX_DISTANCE = 500  # 500 meters tolerance
+        
+        if distance > MAX_DISTANCE:
+            return jsonify({
+                'error': f'Location verification failed. You are {distance:.0f}m away from task location. Maximum allowed: {MAX_DISTANCE}m'
+            }), 400
+    
+    # Compress the after image if too large
+    compressed_after = after_image
+    if len(after_image) > 800000:
+        try:
+            if ',' in after_image:
+                prefix, b64_data = after_image.split(',', 1)
+            else:
+                prefix = 'data:image/jpeg;base64'
+                b64_data = after_image
+            
+            import io
+            img_data = base64.b64decode(b64_data)
+            img = Image.open(io.BytesIO(img_data))
+            
+            max_dim = 800
+            if img.width > max_dim or img.height > max_dim:
+                ratio = min(max_dim / img.width, max_dim / img.height)
+                new_size = (int(img.width * ratio), int(img.height * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=60, optimize=True)
+            compressed_after = f"{prefix},{base64.b64encode(buffer.getvalue()).decode('utf-8')}"
+        except Exception as e:
+            print(f"After image compression failed: {e}")
+    
+    now = datetime.now().isoformat()
+    
+    # Update report with after image and mark as done
+    if USE_FIREBASE:
+        success = fb_update_report(report_id, {
+            'after_image': compressed_after,
+            'completion_lat': completion_lat,
+            'completion_lng': completion_lng,
+            'completed_at': completion_time,
+            'completed_by': request.current_user['email'],
+            'status': 'done',
+            'updated_at': now
+        })
+        if success:
+            fb_log_audit('REPORT_COMPLETED', request.current_user['email'], {
+                'report_id': report_id
+            })
+            return jsonify({'message': 'Task completed successfully'}), 200
+        else:
+            return jsonify({'error': 'Failed to complete task'}), 500
+    
+    # SQLite fallback
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''UPDATE reports SET 
+                 after_image = ?, 
+                 completion_lat = ?, 
+                 completion_lng = ?,
+                 completed_at = ?,
+                 completed_by = ?,
+                 status = 'done',
+                 updated_at = ?
+                 WHERE id = ?''',
+              (compressed_after, completion_lat, completion_lng, completion_time,
+               request.current_user['email'], now, report_id))
+    conn.commit()
+    conn.close()
+    
+    log_audit('REPORT_COMPLETED', request.current_user['email'], {'report_id': report_id})
+    
+    return jsonify({'message': 'Task completed successfully'}), 200
+
 # ---------------------------------------------------------
 # Worker Routes
 # ---------------------------------------------------------
