@@ -1044,10 +1044,19 @@ def signup():
                              VALUES (?, ?, ?, 'pending', ?)''',
                           (email, user_type, phone or None, get_utc_now()))
                 conn.commit()
+                log_audit('SIGNUP_PENDING', email, {'user_type': user_type})
+            except sqlite3.IntegrityError:
+                pass
+            conn.close()
+            return jsonify({'error': 'Awaiting approval from an officer', 'status': 'pending'}), 403
+            
+        whitelist_status = whitelist_entry['status'] or 'pending'
+        if whitelist_status != 'approved':
             conn.close()
             log_audit('SIGNUP_BLOCKED', email, {'reason': f'whitelist_{whitelist_status}'})
             message = 'Awaiting approval from an officer' if whitelist_status == 'pending' else 'This request was rejected by an officer'
             return jsonify({'error': message, 'status': whitelist_status}), 403
+            
         user_type = whitelist_entry['user_type']
     
     # Check if user exists
