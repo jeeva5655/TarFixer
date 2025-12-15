@@ -727,7 +727,8 @@ function openDetails(id) {
   if (r.afterImage) {
     imgAfterEl.src = r.afterImage;
   } else {
-    imgAfterEl.src = "https://via.placeholder.com/600x400/222/fff?text=Worker+Has+Not+Uploaded";
+    // Use a data URI placeholder instead of external service
+    imgAfterEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%23222' width='600' height='400'/%3E%3Ctext fill='%23888' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dy='.3em'%3EWorker Has Not Uploaded%3C/text%3E%3C/svg%3E";
   }
 
   // show/hide buttons based on status
@@ -744,12 +745,22 @@ function openDetails(id) {
       smallMap = null;
       document.getElementById('mapSmall').innerHTML = '';
     }
-    smallMap = L.map('mapSmall', { attributionControl: false, zoomControl: false }).setView([r.lat, r.lng], 15);
+    
+    // Check if coordinates are valid (not 0,0)
+    const hasValidCoords = r.lat && r.lng && !(r.lat === 0 && r.lng === 0);
+    const lat = hasValidCoords ? r.lat : 12.9716; // Default to Bengaluru if no coords
+    const lng = hasValidCoords ? r.lng : 77.5946;
+    
+    smallMap = L.map('mapSmall', { attributionControl: true, zoomControl: true }).setView([lat, lng], 16);
     const url = document.body.classList.contains('light-theme') ? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    smallTile = L.tileLayer(url, { maxZoom: 19 }).addTo(smallMap);
-    L.circleMarker([r.lat, r.lng], { radius: 8, fillColor: '#ff9800', color: '#fff', weight: 2, fillOpacity: 0.9 }).addTo(smallMap).bindPopup(r.id);
-    setTimeout(()=> smallMap.invalidateSize(), 80);
-  }, 80);
+    smallTile = L.tileLayer(url, { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(smallMap);
+    
+    // Add marker with popup showing address
+    const marker = L.marker([lat, lng]).addTo(smallMap);
+    marker.bindPopup(`<strong>${r.id}</strong><br>${r.road}`).openPopup();
+    
+    setTimeout(()=> smallMap.invalidateSize(), 100);
+  }, 100);
 }
 
 function closeDetails() {

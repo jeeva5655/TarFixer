@@ -2127,43 +2127,64 @@ def update_report_status(report_id):
 @require_auth(['officer'])
 def get_workers():
     """Get all workers (officer only)"""
-    # Use Firebase if available
-    if USE_FIREBASE:
-        workers = fb_get_workers()
-        if workers:
-            return jsonify({'workers': workers}), 200
-    
-    # Fallback to SQLite or return demo workers if none found
-    conn = get_db()
-    c = conn.cursor()
-    c.execute('SELECT * FROM users WHERE role = ?', ('worker',))
-    rows = c.fetchall()
-    conn.close()
-    
-    if rows:
-        workers = []
-        for row in rows:
-            data = dict(row)
-            workers.append({
-                'id': data.get('id'),
-                'name': data.get('name', data.get('email', 'Unknown')),
-                'email': data.get('email'),
-                'status': data.get('status', 'Available'),
-                'zone': data.get('zone', 'Zone 1'),
-                'active_jobs': data.get('active_jobs', 0)
-            })
-        return jsonify({'workers': workers}), 200
-    
-    # Return demo workers if none exist
-    return jsonify({
-        'workers': [
-            {'id': '1', 'name': 'Ramesh K', 'email': 'ramesh@worker.com', 'status': 'Available', 'zone': 'Zone 1', 'active_jobs': 0},
-            {'id': '2', 'name': 'Suresh M', 'email': 'suresh@worker.com', 'status': 'Busy', 'zone': 'Zone 2', 'active_jobs': 2},
-            {'id': '3', 'name': 'Abdul R', 'email': 'abdul@worker.com', 'status': 'Available', 'zone': 'Zone 3', 'active_jobs': 0},
-            {'id': '4', 'name': 'John D', 'email': 'john@worker.com', 'status': 'Available', 'zone': 'Zone 4', 'active_jobs': 1}
-        ],
-        'demo': True
-    }), 200
+    try:
+        # Use Firebase if available
+        if USE_FIREBASE:
+            workers = fb_get_workers()
+            # Return workers even if empty list (not None)
+            if workers is not None:
+                if len(workers) > 0:
+                    return jsonify({'workers': workers}), 200
+                # Fall through to demo workers if empty
+        
+        # Fallback to SQLite or return demo workers if none found
+        try:
+            conn = get_db()
+            c = conn.cursor()
+            c.execute('SELECT * FROM users WHERE role = ?', ('worker',))
+            rows = c.fetchall()
+            conn.close()
+            
+            if rows:
+                workers = []
+                for row in rows:
+                    data = dict(row)
+                    workers.append({
+                        'id': data.get('id'),
+                        'name': data.get('name', data.get('email', 'Unknown')),
+                        'email': data.get('email'),
+                        'status': data.get('status', 'Available'),
+                        'zone': data.get('zone', 'Zone 1'),
+                        'active_jobs': data.get('active_jobs', 0)
+                    })
+                return jsonify({'workers': workers}), 200
+        except Exception as db_error:
+            print(f"SQLite error getting workers: {db_error}")
+        
+        # Return demo workers if none exist
+        return jsonify({
+            'workers': [
+                {'id': '1', 'name': 'Ramesh K', 'email': 'ramesh@worker.com', 'status': 'Available', 'zone': 'Zone 1', 'active_jobs': 0},
+                {'id': '2', 'name': 'Suresh M', 'email': 'suresh@worker.com', 'status': 'Busy', 'zone': 'Zone 2', 'active_jobs': 2},
+                {'id': '3', 'name': 'Abdul R', 'email': 'abdul@worker.com', 'status': 'Available', 'zone': 'Zone 3', 'active_jobs': 0},
+                {'id': '4', 'name': 'John D', 'email': 'john@worker.com', 'status': 'Available', 'zone': 'Zone 4', 'active_jobs': 1}
+            ],
+            'demo': True
+        }), 200
+    except Exception as e:
+        print(f"Error in get_workers: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return demo workers as fallback
+        return jsonify({
+            'workers': [
+                {'id': '1', 'name': 'Ramesh K', 'email': 'ramesh@worker.com', 'status': 'Available', 'zone': 'Zone 1', 'active_jobs': 0},
+                {'id': '2', 'name': 'Suresh M', 'email': 'suresh@worker.com', 'status': 'Busy', 'zone': 'Zone 2', 'active_jobs': 2},
+                {'id': '3', 'name': 'Abdul R', 'email': 'abdul@worker.com', 'status': 'Available', 'zone': 'Zone 3', 'active_jobs': 0},
+                {'id': '4', 'name': 'John D', 'email': 'john@worker.com', 'status': 'Available', 'zone': 'Zone 4', 'active_jobs': 1}
+            ],
+            'demo': True
+        }), 200
 
 @app.route('/api/workers', methods=['POST'])
 @require_auth(['officer'])
