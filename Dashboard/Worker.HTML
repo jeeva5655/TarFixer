@@ -1061,8 +1061,9 @@
       if (taskMap) {
         taskMap.removeLayer(tileLayerModal);
         // Keep Satellite view for "Real Map" feel
-        const url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        tileLayerModal = L.tileLayer(url, { maxZoom: 19 }).addTo(taskMap);
+        // Keep Google Maps view consistent
+        const url = 'http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}';
+        tileLayerModal = L.tileLayer(url, { maxZoom: 20 }).addTo(taskMap);
       }
     }
 
@@ -1081,12 +1082,12 @@
       setTimeout(() => {
         taskMap = L.map('mapModalInner', { attributionControl: false }).setView([lat, lng], 15);
 
-        // Use Esri World Imagery for "Real Map" satellite view
-        const url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        const attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+        // Use Google Maps (Roadmap) tiles as requested
+        const url = 'http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}';
+        const attribution = '&copy; Google Maps';
 
         tileLayerModal = L.tileLayer(url, {
-          maxZoom: 19,
+          maxZoom: 20,
           attribution: attribution
         }).addTo(taskMap);
 
