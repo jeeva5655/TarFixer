@@ -539,6 +539,15 @@ def ensure_user_columns(conn):
     add_column_if_missing(conn, 'users', 'google_id', 'TEXT')
     add_column_if_missing(conn, 'users', 'approved', "INTEGER DEFAULT 1")
 
+def ensure_reports_columns(conn):
+    """Add new reports columns if missing (migration)"""
+    add_column_if_missing(conn, 'reports', 'severity', 'TEXT')
+    add_column_if_missing(conn, 'reports', 'status', "TEXT DEFAULT 'pending'")
+    add_column_if_missing(conn, 'reports', 'created_at', 'TEXT')
+    add_column_if_missing(conn, 'reports', 'updated_at', 'TEXT')
+    add_column_if_missing(conn, 'reports', 'completed_by', 'TEXT')
+    add_column_if_missing(conn, 'reports', 'annotated_image', 'TEXT')
+
 def init_db():
     """Initialize the database tables"""
     try:
@@ -591,6 +600,7 @@ def init_db():
 
         ensure_whitelist_columns(conn)
         ensure_user_columns(conn)
+        ensure_reports_columns(conn)
         
         # Sessions table
         c.execute('''
