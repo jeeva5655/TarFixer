@@ -580,12 +580,38 @@
   
   function loadWorkerInfo() {
     const user = API.getUser();
+    console.log('Loading worker info, user:', user);
+    
+    // Try to get name from multiple sources
+    let displayName = 'Worker';
+    let email = '';
+    
     if (user) {
-      document.getElementById('workerName').textContent = user.name || 'Worker';
-      document.getElementById('workerEmail').textContent = user.email || '';
-      const initials = user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'W';
-      document.getElementById('workerInitials').textContent = initials;
+      email = user.email || '';
+      // Try different name sources
+      displayName = user.name || user.displayName || email.split('@')[0] || 'Worker';
     }
+    
+    // Also check localStorage directly in case API.getUser() is stale
+    const storedUser = localStorage.getItem('tarfixer_user_data');
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.name) displayName = parsed.name;
+        if (!email && parsed.email) email = parsed.email;
+      } catch(e) {}
+    }
+    
+    document.getElementById('workerName').textContent = displayName;
+    document.getElementById('workerEmail').textContent = email;
+    
+    // Generate initials
+    const initials = displayName !== 'Worker' 
+      ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) 
+      : 'W';
+    document.getElementById('workerInitials').textContent = initials;
+    
+    console.log('Worker info set:', { displayName, email, initials });
   }
 
   async function protectDashboard() {
