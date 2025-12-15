@@ -2363,10 +2363,20 @@ def create_worker():
 @require_auth(['worker'])
 def get_worker_tasks():
     """Get tasks assigned to current worker"""
+    worker_email = request.current_user['email']
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        reports = fb_get_reports()
+        # Filter for tasks assigned to this worker
+        tasks = [r for r in reports if r.get('assigned_worker') == worker_email]
+        return jsonify(tasks), 200
+    
+    # Fallback to SQLite
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT * FROM reports WHERE assigned_worker = ? ORDER BY created_at DESC',
-              (request.current_user['email'],))
+              (worker_email,))
     tasks = [dict(row) for row in c.fetchall()]
     conn.close()
     
