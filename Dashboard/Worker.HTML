@@ -207,6 +207,12 @@
   let currentFinishingTask = null;
   let tasksData = []; // Store task data from API
   
+  // PROFILE DROPDOWN - Define early to avoid ReferenceError
+  function toggleProfileDropdown() {
+    const dd = document.getElementById('profileDropdown');
+    if (dd) dd.classList.toggle('show');
+  }
+  
   // API Client
   const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:5000/api'
@@ -543,12 +549,6 @@
       document.querySelector('[data-key="navTasks"]').classList.remove('active');
       document.querySelector('[data-key="navHistory"]').classList.add('active');
     }
-  }
-
-  // PROFILE DROPDOWN
-  function toggleProfileDropdown() {
-    const dd = document.getElementById('profileDropdown');
-    dd.classList.toggle('show');
   }
 
   // Click outside to close dropdown
