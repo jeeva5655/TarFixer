@@ -583,6 +583,10 @@
       }
     }
   </style>
+  
+  <!-- Leaflet CSS and JS for maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
 <body>
@@ -632,10 +636,15 @@
     </div>
 
     <div style="margin-top:15px;padding:15px;background:rgba(255,255,255,0.05);border-radius:8px;">
-      <div style="font-size:13px;font-weight:600;margin-bottom:8px;opacity:0.7;">📍 GPS Location from Image:</div>
-      <div><span data-key="lat">Latitude</span>: <span id="lat" style="font-weight:600;color:#00e6a8;">--</span></div>
-      <div><span data-key="long">Longitude</span>: <span id="lng" style="font-weight:600;color:#00e6a8;">--</span></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;opacity:0.7;">📍 GPS Location:</div>
+      <div style="display:flex;gap:15px;flex-wrap:wrap;">
+        <div><span data-key="lat">Latitude</span>: <input type="text" id="lat" style="font-weight:600;color:#00e6a8;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:4px 8px;width:120px;" value="--"></div>
+        <div><span data-key="long">Longitude</span>: <input type="text" id="lng" style="font-weight:600;color:#00e6a8;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:4px;padding:4px 8px;width:120px;" value="--"></div>
+        <button onclick="refreshGPS()" style="background:#3b82f6;color:white;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-size:12px;">🔄 Refresh GPS</button>
+      </div>
       <div id="error" style="margin-top:10px;font-size:13px;"></div>
+      <div id="locationPreview" style="margin-top:10px;height:150px;border-radius:8px;overflow:hidden;display:none;"></div>
+      <div id="locationAddress" style="margin-top:8px;font-size:12px;color:#00e6a8;"></div>
     </div>
   </div>
 
@@ -1053,6 +1062,117 @@
 
     let stream = null;
     let capturedImageData = null;
+    let locationMap = null; // For location preview
+
+    /* ---------- GPS and Location Functions ---------- */
+    function updateLocationPreview(lat, lng) {
+      const previewDiv = document.getElementById('locationPreview');
+      const addressDiv = document.getElementById('locationAddress');
+      
+      if (!previewDiv) return;
+      
+      // Show the preview container
+      previewDiv.style.display = 'block';
+      
+      // Remove old map if exists
+      if (locationMap) {
+        locationMap.remove();
+        locationMap = null;
+      }
+      
+      // Create new map
+      locationMap = L.map(previewDiv, { 
+        attributionControl: false, 
+        zoomControl: true 
+      }).setView([lat, lng], 17);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+        maxZoom: 19 
+      }).addTo(locationMap);
+      
+      // Add draggable marker
+      const marker = L.marker([lat, lng], { draggable: true }).addTo(locationMap);
+      marker.bindPopup('📍 Drag me to adjust location').openPopup();
+      
+      // Update coordinates when marker is dragged
+      marker.on('dragend', function(e) {
+        const pos = e.target.getLatLng();
+        latBox.value = pos.lat.toFixed(6);
+        lngBox.value = pos.lng.toFixed(6);
+        reverseGeocode(pos.lat, pos.lng);
+      });
+      
+      // Get address via reverse geocoding
+      reverseGeocode(lat, lng);
+      
+      // Fix map display
+      setTimeout(() => locationMap.invalidateSize(), 100);
+    }
+    
+    async function reverseGeocode(lat, lng) {
+      const addressDiv = document.getElementById('locationAddress');
+      if (!addressDiv) return;
+      
+      addressDiv.textContent = '🔍 Looking up address...';
+      
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          addressDiv.textContent = '📍 ' + (data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+        } else {
+          addressDiv.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+      } catch (error) {
+        console.warn('Geocoding failed:', error);
+        addressDiv.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      }
+    }
+    
+    function refreshGPS() {
+      const errorBox = document.getElementById('error');
+      if (errorBox) {
+        errorBox.textContent = '🔄 Refreshing GPS location...';
+        errorBox.style.color = '#00e6a8';
+      }
+      
+      if (!navigator.geolocation) {
+        if (errorBox) {
+          errorBox.textContent = '❌ GPS not supported by your browser';
+          errorBox.style.color = '#ff7070';
+        }
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          latBox.value = lat.toFixed(6);
+          lngBox.value = lng.toFixed(6);
+          updateLocationPreview(lat, lng);
+          if (errorBox) {
+            errorBox.textContent = `✅ GPS updated! Accuracy: ${pos.coords.accuracy.toFixed(0)}m`;
+            errorBox.style.color = '#00e6a8';
+          }
+        },
+        (err) => {
+          console.error('GPS error:', err);
+          if (errorBox) {
+            errorBox.textContent = '❌ GPS error: ' + err.message;
+            errorBox.style.color = '#ff7070';
+          }
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+    
+    // Make refreshGPS available globally
+    window.refreshGPS = refreshGPS;
 
     /* ---------- UI init ---------- */
     function initials(name) {
@@ -1191,8 +1311,9 @@
                 exif.GPSLongitudeRef
               );
 
-              latBox.textContent = lat.toFixed(6);
-              lngBox.textContent = lng.toFixed(6);
+              latBox.value = lat.toFixed(6);
+              lngBox.value = lng.toFixed(6);
+              updateLocationPreview(lat, lng);
               errorBox.textContent = '✅ GPS location extracted successfully! You can now analyze the damage.';
               errorBox.style.color = '#00e6a8';
               resolve({ lat, lng });
@@ -1439,8 +1560,8 @@
         // Prepare report data for backend
         const reportData = {
           location: 'User Location', // You can add a location input field
-          latitude: parseFloat(latBox.textContent) || 0,
-          longitude: parseFloat(lngBox.textContent) || 0,
+          latitude: parseFloat(latBox.value) || 0,
+          longitude: parseFloat(lngBox.value) || 0,
           damage_percentage: detectionData.severity,
           severity: detectionData.severityLabel,
           detection_count: detectionData.detectionCount,
@@ -1771,10 +1892,13 @@
           if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
               (pos) => {
-                latBox.textContent = pos.coords.latitude.toFixed(6);
-                lngBox.textContent = pos.coords.longitude.toFixed(6);
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                latBox.value = lat.toFixed(6);
+                lngBox.value = lng.toFixed(6);
+                updateLocationPreview(lat, lng);
                 if (errorBox) {
-                  errorBox.textContent = '✅ GPS location captured successfully! You can now analyze the damage.';
+                  errorBox.textContent = '✅ GPS location captured! Verify it on the map below.';
                   errorBox.style.color = '#00e6a8';
                 }
                 if (analyseCard) analyseCard.style.display = 'block';
@@ -1791,10 +1915,13 @@
                     // Retry with lower accuracy
                     navigator.geolocation.getCurrentPosition(
                       (pos) => {
-                        latBox.textContent = pos.coords.latitude.toFixed(6);
-                        lngBox.textContent = pos.coords.longitude.toFixed(6);
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        latBox.value = lat.toFixed(6);
+                        lngBox.value = lng.toFixed(6);
+                        updateLocationPreview(lat, lng);
                         if (errorBox) {
-                          errorBox.textContent = '✅ GPS location captured! You can now analyze the damage.';
+                          errorBox.textContent = '✅ GPS location captured! Verify it on the map.';
                           errorBox.style.color = '#00e6a8';
                         }
                         if (analyseCard) analyseCard.style.display = 'block';
