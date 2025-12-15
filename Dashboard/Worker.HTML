@@ -601,10 +601,8 @@
       if (dd) dd.classList.toggle('show');
     }
 
-    // API Client
-    const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-      ? 'http://localhost:5000/api'
-      : 'https://tarfixer-backend.onrender.com/api';
+    // API Client - API_BASE_URL is already defined in api-client.js
+
 
     // Get auth token
     function getToken() {
