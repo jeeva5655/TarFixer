@@ -2352,6 +2352,67 @@ def reject_request(request_id):
     return update_approval_status(request_id, 'rejected')
 
 # ---------------------------------------------------------
+# Setup Routes (for initializing demo data)
+# ---------------------------------------------------------
+@app.route('/api/setup/create-demo-workers', methods=['POST'])
+def create_demo_workers():
+    """Create demo worker accounts (one-time setup)"""
+    demo_workers = [
+        {'email': 'ramesh@worker.com', 'name': 'Ramesh K', 'zone': 'Zone 1'},
+        {'email': 'suresh@worker.com', 'name': 'Suresh M', 'zone': 'Zone 2'},
+        {'email': 'abdul@worker.com', 'name': 'Abdul R', 'zone': 'Zone 3'},
+        {'email': 'john@worker.com', 'name': 'John D', 'zone': 'Zone 4'}
+    ]
+    
+    created = []
+    already_exists = []
+    
+    for worker in demo_workers:
+        email = worker['email']
+        password_hash = hash_password('worker123', email)
+        
+        if USE_FIREBASE:
+            existing = fb_get_user_by_email(email)
+            if existing:
+                already_exists.append(email)
+                continue
+            
+            user_id = fb_create_user(email, password_hash, 'worker', worker['name'])
+            if user_id:
+                # Update zone info
+                try:
+                    db.collection('users').document(user_id).update({
+                        'zone': worker['zone'],
+                        'status': 'Available',
+                        'active_jobs': 0
+                    })
+                except:
+                    pass
+                created.append(email)
+        else:
+            # SQLite fallback
+            conn = get_db()
+            c = conn.cursor()
+            c.execute('SELECT id FROM users WHERE email = ?', (email,))
+            if c.fetchone():
+                already_exists.append(email)
+                conn.close()
+                continue
+            
+            c.execute('''INSERT INTO users (email, password_hash, user_type, name, created_at)
+                         VALUES (?, ?, 'worker', ?, ?)''',
+                      (email, password_hash, worker['name'], datetime.now().isoformat()))
+            conn.commit()
+            conn.close()
+            created.append(email)
+    
+    return jsonify({
+        'message': 'Demo workers setup complete',
+        'created': created,
+        'already_exists': already_exists
+    }), 200
+
+# ---------------------------------------------------------
 # Run the App
 # ---------------------------------------------------------
 if __name__ == '__main__':
