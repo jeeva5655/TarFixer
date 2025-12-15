@@ -1102,11 +1102,11 @@ def login():
         
         if not user:
             fb_log_audit('LOGIN_FAILED', email, {'reason': 'account_not_found'})
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': 'Invalid credentials (User not found)'}), 401
         
         if user.get('password_hash') != password_hash:
             fb_log_audit('LOGIN_FAILED', email, {'reason': 'incorrect_password'})
-            return jsonify({'error': 'Invalid credentials'}), 401
+            return jsonify({'error': 'Invalid credentials (Password mismatch)'}), 401
             
         # Check approval status (Legacy or Explicit)
         is_approved = user.get('approved', 1) # Default to 1 (True) for backward compat
