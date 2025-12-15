@@ -1635,9 +1635,8 @@ def forgot_password():
     user = c.fetchone()
     
     if user:
-        # Convert to dict for consistency if needed, but Row is usually fine
-        # We re-assign to user to keep variable name
-        pass
+        # Convert to dict for consistency and to support .get() method
+        user = dict(user)
     
     if not user:
         conn.close()
