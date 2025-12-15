@@ -26,8 +26,13 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 
 # Firebase Admin SDK
-import firebase_admin
-from firebase_admin import credentials, firestore
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+except ImportError:
+    firebase_admin = None
+    firestore = None
+    print("WARNING: Firebase SDK not installed. running in SQLite-only mode.")
 
 # Initialize Firebase
 db = None
@@ -42,9 +47,9 @@ try:
         USE_FIREBASE = True
         print("🔥 Firebase Firestore initialized successfully!")
     else:
-        print("⚠️ FIREBASE_CREDENTIALS not found, using SQLite fallback")
+        print("WARNING: FIREBASE_CREDENTIALS not found, using SQLite fallback")
 except Exception as e:
-    print(f"⚠️ Firebase initialization failed: {e}, using SQLite fallback")
+    print(f"WARNING: Firebase initialization failed: {e}, using SQLite fallback")
     USE_FIREBASE = False
 
 # Only import heavy ML libraries if NOT on Render
@@ -54,11 +59,11 @@ if not IS_RENDER:
     try:
         from ultralytics import YOLO
         import torch
-    except Exception:
+    except Exception as e:
         YOLO = None
         torch = None
 else:
-    print("☁️ Running on Render - skipping ultralytics import to save memory")
+    print("INFO: Running on Render - skipping ultralytics import to save memory")
 
 from PIL import Image
 import sqlite3
@@ -87,7 +92,7 @@ if os.environ.get('EMAIL_FROM_ADDRESS'):
 elif EMAIL_HOST_USER:
     EMAIL_FROM_ADDRESS = f'TarFixer <{EMAIL_HOST_USER}>'
 
-print(f"📧 Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}, From={EMAIL_FROM_ADDRESS}")
+print(f"INFO: Email Config Loaded: Host={EMAIL_HOST}, User={EMAIL_HOST_USER}, From={EMAIL_FROM_ADDRESS}")
 
 # ---------------------------------------------------------
 # Flask Initialization
@@ -121,7 +126,7 @@ def add_cors_headers(response):
 @app.before_request
 def log_request_info():
     origin = request.headers.get('Origin')
-    print(f"🌐 Request from Origin: {origin} -> {request.method} {request.path}")
+    print(f"INFO: Request from Origin: {origin} -> {request.method} {request.path}")
 
 # Add CORS headers to all responses
 # (Handled by Flask-CORS)
@@ -143,14 +148,16 @@ if IS_RENDER:
 else:
     try:
         model_path = os.path.join(BASE_DIR, "model", "best.pt")
+    # ...
+    # ...
         if YOLO and os.path.exists(model_path):
-            print(f"🔄 Loading YOLO model from {model_path}...")
+            print(f"INFO: Loading YOLO model from {model_path}...")
             model = YOLO(model_path)
-            print("✅ YOLO Model loaded successfully")
+            print("INFO: YOLO Model loaded successfully")
         else:
-            print(f"⚠️ YOLO Model not found at {model_path} or YOLO library missing")
+            print(f"WARNING: YOLO Model not found at {model_path} or YOLO library missing")
     except Exception as e:
-        print(f"❌ Failed to load YOLO model: {e}")
+        print(f"ERROR: Failed to load YOLO model: {e}")
 
 # ---------------------------------------------------------
 # Firebase Firestore Helper Functions
@@ -412,6 +419,94 @@ def fb_update_worker_status(worker_email, status, active_jobs=None):
         print(f"Firebase error updating worker: {e}")
         return False
 
+def fb_get_whitelist_entry(email):
+    """Get whitelist entry from Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        whitelist_ref = db.collection('whitelist')
+        query = whitelist_ref.where('email', '==', email).limit(1)
+        docs = list(query.stream())
+        if docs:
+            data = docs[0].to_dict()
+            data['id'] = docs[0].id
+            return data
+        return None
+    except Exception as e:
+        print(f"Firebase error getting whitelist: {e}")
+        return None
+
+def fb_create_whitelist_entry(data):
+    """Create whitelist entry in Firebase"""
+    if not USE_FIREBASE:
+        return None
+    try:
+        whitelist_ref = db.collection('whitelist')
+        # Check if exists first
+        query = whitelist_ref.where('email', '==', data['email']).limit(1)
+        if list(query.stream()):
+            return None
+            
+        doc_ref = whitelist_ref.add({
+            'email': data['email'],
+            'user_type': data['user_type'],
+            'phone': data.get('phone'),
+            'status': data.get('status', 'pending'),
+            'requested_at': datetime.now().isoformat(),
+            'approved_by': None,
+            'approved_at': None
+        })
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"Firebase error creating whitelist: {e}")
+        return None
+
+def fb_update_whitelist_status(entry_id, status, approver_email=None):
+    """Update whitelist status in Firebase"""
+    if not USE_FIREBASE:
+        return False
+    try:
+        whitelist_ref = db.collection('whitelist')
+        updates = {
+            'status': status,
+            'approved_at': datetime.now().isoformat() if status == 'approved' else None
+        }
+        if approver_email:
+            updates['approved_by'] = approver_email
+            
+        whitelist_ref.document(entry_id).update(updates)
+        return True
+    except Exception as e:
+        print(f"Firebase error updating whitelist: {e}")
+        return False
+
+def fb_get_all_whitelist_entries(status_filter=None, role_filter=None):
+    """Get all whitelist entries from Firebase"""
+    if not USE_FIREBASE:
+        return []
+    try:
+        whitelist_ref = db.collection('whitelist')
+        query = whitelist_ref
+        
+        if status_filter:
+            query = query.where('status', '==', status_filter)
+        if role_filter:
+            query = query.where('user_type', '==', role_filter)
+            
+        docs = query.stream()
+        entries = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id
+            entries.append(data)
+            
+        # Sort manually since we can't easily chain OrderBy with Where on multiple fields without index
+        entries.sort(key=lambda x: x.get('requested_at', ''), reverse=True)
+        return entries
+    except Exception as e:
+        print(f"Firebase error getting whitelist: {e}")
+        return []
+
 # ---------------------------------------------------------
 # SQLite Database Functions (Fallback)
 # ---------------------------------------------------------
@@ -553,7 +648,9 @@ def init_db():
 # We will update this with the real URL after deployment
 AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'https://huggingface.co/spaces/Jeeva5655/tarfixer-ai')
 
-print(f"🤖 AI Service URL: {AI_SERVICE_URL}")
+AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'https://huggingface.co/spaces/Jeeva5655/tarfixer-ai')
+
+print(f"INFO: AI Service URL: {AI_SERVICE_URL}")
 
 @app.route('/', methods=['GET'])
 def index():
@@ -884,18 +981,40 @@ def signup():
     
     # Use Firebase if available
     if USE_FIREBASE:
-        # Check if user exists in Firebase
+        # Check existing user
         existing_user = fb_get_user_by_email(email)
         if existing_user:
             return jsonify({'error': 'Account already exists'}), 400
+            
+        # WHITELIST CHECK FOR OFFICER/WORKER
+        if user_type in ['officer', 'worker']:
+            whitelist_entry = fb_get_whitelist_entry(email)
+            
+            if not whitelist_entry:
+                # Create pending request
+                fb_create_whitelist_entry({
+                    'email': email,
+                    'user_type': user_type,
+                    'phone': phone,
+                    'status': 'pending'
+                })
+                log_audit('SIGNUP_PENDING', email, {'user_type': user_type})
+                return jsonify({'error': 'Awaiting approval from an officer', 'status': 'pending'}), 403
+            
+            whitelist_status = whitelist_entry.get('status', 'pending')
+            if whitelist_status != 'approved':
+                log_audit('SIGNUP_BLOCKED', email, {'reason': f'whitelist_{whitelist_status}'})
+                message = 'Awaiting approval from officer' if whitelist_status == 'pending' else 'Request rejected'
+                return jsonify({'error': message, 'status': whitelist_status}), 403
         
-        # Create user in Firebase
+        # Create user in Firebase (Approved)
         password_hash = hash_password(password, email)
         fallback_name = email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
         name = preferred_name or fallback_name
         
         user_id = fb_create_user(email, password_hash, user_type, name)
         if user_id:
+            # If came from whitelist, update usage? (Optional, maybe not needed)
             fb_log_audit('SIGNUP_SUCCESS', email, {'user_type': user_type})
             return jsonify({
                 'message': 'Account created successfully',
@@ -981,6 +1100,12 @@ def login():
         if user.get('password_hash') != password_hash:
             fb_log_audit('LOGIN_FAILED', email, {'reason': 'incorrect_password'})
             return jsonify({'error': 'Invalid credentials'}), 401
+            
+        # Check approval status (Legacy or Explicit)
+        is_approved = user.get('approved', 1) # Default to 1 (True) for backward compat
+        if not is_approved:
+            fb_log_audit('LOGIN_BLOCKED', email, {'reason': 'pending_approval'})
+            return jsonify({'error': 'Account pending approval. Please contact admin.'}), 403
         
         # Create session token
         token = secrets.token_urlsafe(32)
@@ -1016,6 +1141,12 @@ def login():
         conn.close()
         log_audit('LOGIN_FAILED', email, {'reason': 'incorrect_password'})
         return jsonify({'error': 'Invalid credentials'}), 401
+        
+    # Check approval status
+    if not user['approved']:
+        conn.close()
+        log_audit('LOGIN_BLOCKED', email, {'reason': 'pending_approval'})
+        return jsonify({'error': 'Account pending approval'}), 403
     
     # Create session token
     token = secrets.token_urlsafe(32)
@@ -2429,6 +2560,11 @@ def list_approvals():
     """Return whitelist entries with optional filters"""
     status_filter = request.args.get('status')
     role_filter = request.args.get('user_type')
+    
+    if USE_FIREBASE:
+        entries = fb_get_all_whitelist_entries(status_filter, role_filter)
+        return jsonify(entries), 200
+        
     conn = get_db()
     c = conn.cursor()
     query = 'SELECT * FROM whitelist'
@@ -2451,6 +2587,17 @@ def list_approvals():
 def update_approval_status(request_id, new_status):
     data = request.get_json(silent=True) or {}
     note = data.get('note')
+    
+    if USE_FIREBASE:
+        # For Firebase, request_id is a string
+        # BUT flask route defines <int:request_id>... 
+        # Wait, Firebase IDs are strings. We need to handle this.
+        # Ideally route should be <request_id> (string)
+        # But for now, let's assume if it comes in as int, we convert? No, Firebase IDs are alphanumeric.
+        # This will fail routing if we don't change route definition.
+        # I will update route definitions below.
+        pass
+
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT * FROM whitelist WHERE id = ?', (request_id,))
@@ -2462,6 +2609,18 @@ def update_approval_status(request_id, new_status):
     if current_status == new_status:
         conn.close()
         return jsonify({'message': f"Request already {new_status}"}), 200
+        
+    # If approving, we might need to Create the User if they don't exist?
+    # In SQLite flow: User creation happens on next signup attempt (whitelist check passes).
+    # OR we can auto-create user now?
+    # The current SQLite flow (see signup) assumes user retries signup.
+    # But wait, if they retry signup, they will getting 201 Created.
+    # Does 'approve' action create the user?
+    # In `update_approval_status` (SQLite), it ONLY updates whitelist.
+    # So the user has to SIGN UP AGAIN.
+    # This is slightly bad UX but secure.
+    # But let's stick to this pattern for now to match SQLite legacy.
+    
     timestamp = datetime.now().isoformat()
     c.execute('''UPDATE whitelist SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?''',
               (new_status, request.current_user['email'], timestamp, request_id))
@@ -2481,15 +2640,42 @@ def update_approval_status(request_id, new_status):
         'user_type': entry['user_type']
     }}), 200
 
-@app.route('/api/admin/approvals/<int:request_id>/approve', methods=['POST'])
+@app.route('/api/admin/approvals/<request_id>/approve', methods=['POST'])
 @require_auth(['officer'])
 def approve_request(request_id):
-    return update_approval_status(request_id, 'approved')
+    # Handle Firebase (String ID) vs SQLite (Int ID)
+    # The route <request_id> captures both strings and ints as strings
+    
+    if USE_FIREBASE:
+        success = fb_update_whitelist_status(request_id, 'approved', request.current_user['email'])
+        if success:
+            # OPTIONAL: Auto-create user account if we have password? 
+            # We don't have password stored in whitelist.
+            # So user must sign up again.
+            return jsonify({'message': 'Request approved', 'status': 'approved'}), 200
+        return jsonify({'error': 'Failed to update'}), 500
+        
+    # SQLite - convert to int
+    try:
+        int_id = int(request_id)
+        return update_approval_status(int_id, 'approved')
+    except ValueError:
+        return jsonify({'error': 'Invalid ID format for SQLite'}), 400
 
-@app.route('/api/admin/approvals/<int:request_id>/reject', methods=['POST'])
+@app.route('/api/admin/approvals/<request_id>/reject', methods=['POST'])
 @require_auth(['officer'])
 def reject_request(request_id):
-    return update_approval_status(request_id, 'rejected')
+    if USE_FIREBASE:
+        success = fb_update_whitelist_status(request_id, 'rejected', request.current_user['email'])
+        if success:
+            return jsonify({'message': 'Request rejected', 'status': 'rejected'}), 200
+        return jsonify({'error': 'Failed to update'}), 500
+
+    try:
+        int_id = int(request_id)
+        return update_approval_status(int_id, 'rejected')
+    except ValueError:
+        return jsonify({'error': 'Invalid ID format for SQLite'}), 400
 
 # ---------------------------------------------------------
 # Setup Routes (for initializing demo data)
@@ -2557,13 +2743,14 @@ def create_demo_workers():
 # ---------------------------------------------------------
 if __name__ == '__main__':
     # init_db() is already called at module level
+    # init_db() is already called at module level
     print("=" * 60)
-    print("🚀 TarFixer Backend Server Starting...")
+    print("INFO: TarFixer Backend Server Starting...")
     print("=" * 60)
-    print(f"📍 API Base URL: {os.environ.get('RENDER_EXTERNAL_URL', 'http://localhost:5000')}/api")
-    print(f"🔐 Authentication: Token-based (JWT-style)")
-    print(f"🗄️  Database: SQLite ({DATABASE})")
-    print(f"🤖 AI Service: {AI_SERVICE_URL}")
+    print(f"INFO: API Base URL: {os.environ.get('RENDER_EXTERNAL_URL', 'http://localhost:5000')}/api")
+    print(f"INFO: Authentication: Token-based (JWT-style)")
+    print(f"INFO: Database: SQLite ({DATABASE})")
+    print(f"INFO: AI Service: {AI_SERVICE_URL}")
     print("=" * 60)
     
     port = int(os.environ.get('PORT', 5000))
