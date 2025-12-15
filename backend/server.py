@@ -1631,12 +1631,13 @@ def forgot_password():
         return jsonify({'error': 'Too many reset requests. Please try again later.'}), 429
     
     # Check if user exists
-    c.execute('SELECT id, email, name, google_id, password_hash, security_answer FROM users WHERE email = ?', (email,))
-    user = dict(c.fetchone()) if c.fetchone() else None # Fetch as dict-like
-    
-    # Re-fetch as proper row to avoid confusing behavior
     c.execute('SELECT * FROM users WHERE email = ?', (email,))
     user = c.fetchone()
+    
+    if user:
+        # Convert to dict for consistency if needed, but Row is usually fine
+        # We re-assign to user to keep variable name
+        pass
     
     if not user:
         conn.close()
