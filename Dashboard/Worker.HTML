@@ -220,7 +220,7 @@
   // Fetch tasks assigned to this worker
   async function fetchMyTasks() {
     const taskList = document.getElementById('taskList');
-    taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;">Loading tasks...</div>';
+    taskList.innerHTML = '<div style="text-align:center; color:var(--muted); margin-top:40px;"><div>Loading tasks...</div><div style="font-size:12px; margin-top:8px;">Connecting to server (may take up to 30s on first load)</div></div>';
     
     try {
       const token = getToken();
@@ -229,15 +229,29 @@
         return;
       }
       
+      console.log('Fetching tasks from:', `${API_BASE_URL}/workers/tasks`);
+      
+      // Add timeout for slow server startup
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      
       const response = await fetch(`${API_BASE_URL}/workers/tasks`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch tasks');
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`Server error: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('Tasks received:', data);
       tasksData = data || [];
       
       // Filter out completed/resolved tasks
@@ -285,7 +299,11 @@
       
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;">Failed to load tasks. Please try again.</div>';
+      if (error.name === 'AbortError') {
+        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Server is taking too long to respond.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a> or wait for server to wake up.</div></div>';
+      } else {
+        taskList.innerHTML = '<div style="text-align:center; color:#ff7070; margin-top:40px;"><div>Failed to load tasks.</div><div style="font-size:12px; margin-top:8px;"><a href="javascript:fetchMyTasks()" style="color:#3b82f6;">Try again</a></div></div>';
+      }
     }
   }
 
