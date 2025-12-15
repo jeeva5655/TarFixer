@@ -2952,8 +2952,16 @@ def reject_request(request_id):
 
 @app.route('/api/debug/schema', methods=['GET'])
 def debug_schema():
-    """Debug endpoint to check DB schema"""
+    """Debug endpoint to check DB schema and force init"""
     try:
+        if request.args.get('fix') == 'true':
+           try:
+               init_db()
+               return jsonify({'message': 'init_db executed successfully', 'status': 'fixed'}), 200
+           except Exception as e:
+               import traceback
+               return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
         conn = get_db()
         c = conn.cursor()
         c.execute("PRAGMA table_info(reports)")
@@ -2961,7 +2969,8 @@ def debug_schema():
         conn.close()
         return jsonify({'columns': columns}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 @app.route('/api/admin/stats', methods=['GET'])
 @require_auth(['officer'])
