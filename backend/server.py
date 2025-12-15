@@ -452,7 +452,7 @@ def fb_create_whitelist_entry(data):
             'user_type': data['user_type'],
             'phone': data.get('phone'),
             'status': data.get('status', 'pending'),
-            'requested_at': datetime.now().isoformat(),
+            'requested_at': get_utc_now(),
             'approved_by': None,
             'approved_at': None
         })
@@ -469,7 +469,7 @@ def fb_update_whitelist_status(entry_id, status, approver_email=None):
         whitelist_ref = db.collection('whitelist')
         updates = {
             'status': status,
-            'approved_at': datetime.now().isoformat() if status == 'approved' else None
+            'approved_at': get_utc_now() if status == 'approved' else None
         }
         if approver_email:
             updates['approved_by'] = approver_email
@@ -693,6 +693,10 @@ def hash_password(password, email):
     """Hash password with email-specific salt"""
     salt = f"TARFIXER_SALT_2025_SECURE_{email.lower()}"
     return hashlib.sha256((password + salt).encode()).hexdigest()
+
+def get_utc_now():
+    """Get current UTC timestamp in ISO format with Z suffix"""
+    return datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
 def log_audit(event_type, email, details=None):
     """Log audit event"""
@@ -1032,19 +1036,13 @@ def signup():
     if user_type in ['officer', 'worker']:
         c.execute('SELECT * FROM whitelist WHERE email = ?', (email,))
         whitelist_entry = c.fetchone()
+        
         if not whitelist_entry:
-            c.execute('''INSERT INTO whitelist (email, user_type, phone, status, requested_at)
-                         VALUES (?, ?, ?, 'pending', ?)''',
-                      (email, user_type, phone or None, datetime.now().isoformat()))
-            conn.commit()
-            conn.close()
-            log_audit('SIGNUP_PENDING', email, {'user_type': user_type})
-            return jsonify({'error': 'Awaiting approval from an officer', 'status': 'pending'}), 403
-        whitelist_status = whitelist_entry['status'] or 'pending'
-        if whitelist_status != 'approved':
-            if phone and (not whitelist_entry['phone'] or whitelist_entry['phone'] != phone):
-                c.execute('UPDATE whitelist SET phone = ?, requested_at = ? WHERE id = ?',
-                          (phone, datetime.now().isoformat(), whitelist_entry['id']))
+            # Create whitelist entry (Pending)
+            try:
+                c.execute('''INSERT INTO whitelist (email, user_type, phone, status, requested_at)
+                             VALUES (?, ?, ?, 'pending', ?)''',
+                          (email, user_type, phone or None, get_utc_now()))
                 conn.commit()
             conn.close()
             log_audit('SIGNUP_BLOCKED', email, {'reason': f'whitelist_{whitelist_status}'})
@@ -2621,7 +2619,7 @@ def update_approval_status(request_id, new_status):
     # This is slightly bad UX but secure.
     # But let's stick to this pattern for now to match SQLite legacy.
     
-    timestamp = datetime.now().isoformat()
+    timestamp = get_utc_now()
     c.execute('''UPDATE whitelist SET status = ?, approved_by = ?, approved_at = ? WHERE id = ?''',
               (new_status, request.current_user['email'], timestamp, request_id))
     conn.commit()
