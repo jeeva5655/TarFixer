@@ -498,13 +498,28 @@
     <div class="modal-overlay" id="forgotPasswordModal">
         <div class="forgot-modal">
             <h3>Reset Password</h3>
-            <p>Enter your email address and we'll send you instructions to reset your password.</p>
-            <input type="email" id="forgotEmailInput" placeholder="Enter your email address">
-            <div class="error-msg" id="forgotEmailError"></div>
-            <div class="forgot-modal-actions">
-                <button class="btn-cancel" onclick="closeForgotPasswordModal()">Cancel</button>
-                <button class="btn-submit" onclick="submitForgotPassword()">Send Reset Link</button>
-            </div>
+            <p class="modal-description">Enter your email address and security answer to receive password reset
+                instructions.</p>
+
+            <form onsubmit="handleForgotPassword(event)">
+                <div class="input-group">
+                    <input type="email" id="forgotEmailInput" placeholder="Email Address" required>
+                </div>
+
+                <div class="input-group" style="margin-top: 15px;">
+                    <label
+                        style="font-size: 12px; color: #666; display: block; margin-bottom: 5px; text-align: left;">Security
+                        Answer: What is your pet's name?</label>
+                    <input type="text" id="forgotSecurityAnswer" placeholder="e.g. Fluffy (or 'admin' for old accounts)"
+                        required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                </div>
+
+                <div class="error-msg" id="forgotEmailError"></div>
+                <div class="forgot-modal-actions">
+                    <button class="btn-cancel" type="button" onclick="closeForgotPasswordModal()">Cancel</button>
+                    <button class="btn-submit" type="submit">Send Reset Link</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1165,6 +1180,8 @@
             const fullName = sanitizeInput(document.getElementById('regName')?.value || '');
             const phone = sanitizeInput(phoneInput ? phoneInput.value : '');
             const digitsOnly = phone.replace(/[^0-9]/g, '');
+            const securityAnswer = sanitizeInput(document.getElementById('signupSecurityAnswer')?.value || '');
+
 
             // Client-side validation
             if (!isValidEmail(email)) {
@@ -1190,6 +1207,12 @@
                 valid = false;
             }
 
+            if (!securityAnswer) {
+                // Assuming regPassError is a general error display for signup form
+                regPassError.textContent = "Security answer is required";
+                valid = false;
+            }
+
             if (!valid) return;
 
             // Show loading state
@@ -1203,7 +1226,8 @@
                 const user = await API.signup(email, password, {
                     userType: role,
                     phone,
-                    name: fullName
+                    name: fullName,
+                    security_answer: securityAnswer
                 });
 
                 console.log('Signup successful, user:', user);
@@ -1421,6 +1445,7 @@
             event.preventDefault();
             document.getElementById('forgotPasswordModal').classList.add('show');
             document.getElementById('forgotEmailInput').value = '';
+            document.getElementById('forgotSecurityAnswer').value = ''; // Clear security answer
             document.getElementById('forgotEmailError').textContent = '';
             setTimeout(() => document.getElementById('forgotEmailInput').focus(), 100);
         }
@@ -1429,10 +1454,26 @@
             document.getElementById('forgotPasswordModal').classList.remove('show');
         }
 
-        function submitForgotPassword() {
+        // Removed submitForgotPassword as the form now handles submission directly
+
+        // Close modal when clicking outside
+        document.getElementById('forgotPasswordModal')?.addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeForgotPasswordModal();
+            }
+        });
+
+        let resetLink = '';
+
+        async function handleForgotPassword(event) {
+            event.preventDefault(); // Prevent default form submission
             const emailInput = document.getElementById('forgotEmailInput');
-            const email = emailInput.value.trim();
+            const securityAnswerInput = document.getElementById('forgotSecurityAnswer');
+            const email = sanitizeInput(emailInput.value.trim());
+            const securityAnswer = sanitizeInput(securityAnswerInput.value.trim());
             const errorEl = document.getElementById('forgotEmailError');
+            const submitBtn = event.target.querySelector('.btn-submit');
+            const originalText = submitBtn.textContent;
 
             errorEl.textContent = '';
 
@@ -1446,21 +1487,10 @@
                 return;
             }
 
-            handleForgotPassword(email);
-        }
-
-        // Close modal when clicking outside
-        document.getElementById('forgotPasswordModal')?.addEventListener('click', function (e) {
-            if (e.target === this) {
-                closeForgotPasswordModal();
+            if (!securityAnswer) {
+                errorEl.textContent = 'Security answer is required';
+                return;
             }
-        });
-
-        let resetLink = '';
-
-        async function handleForgotPassword(email) {
-            const submitBtn = document.querySelector('.forgot-modal .btn-submit');
-            const originalText = submitBtn.textContent;
 
             try {
                 submitBtn.textContent = 'Sending...';
@@ -1469,13 +1499,17 @@
                 const API_URL = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'https://tarfixer-backend.onrender.com/api';
                 console.log('Sending forgot password request to:', `${API_URL}/auth/forgot-password`);
                 console.log('Email:', email);
+                console.log('Security Answer:', securityAnswer);
 
                 const response = await fetch(`${API_URL}/auth/forgot-password`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email: email.toLowerCase() })
+                    body: JSON.stringify({
+                        email: email.toLowerCase(),
+                        security_answer: securityAnswer
+                    })
                 });
 
                 console.log('Response status:', response.status);
@@ -1490,16 +1524,21 @@
 
                     // Show success modal WITHOUT verification code on screen
                     if (data.dev_reset_link) {
-                        // Show reset link button but NOT the verification code
+                        // DEV MODE: Show reset link button AND verification code
                         resetLink = data.dev_reset_link;
                         document.getElementById('successMessage').textContent =
-                            'Reset link generated! Click the button below to reset your password.';
-                        document.getElementById('verificationCodeDisplay').style.display = 'none';
+                            'Reset link generated! Since this is a test account, the code is shown below:';
+
+                        // Display the code
+                        const codeDisplay = document.getElementById('verificationCodeDisplay');
+                        codeDisplay.style.display = 'block';
+                        document.getElementById('verificationCode').textContent = data.dev_verification_code || '------';
+
                         document.getElementById('successModal').classList.add('show');
 
-                        // Log to console for development debugging only (not visible to user)
+                        // Log to console too
                         console.log('Reset link:', data.dev_reset_link);
-                        console.log('Verification code sent to email');
+                        console.log('Verification code:', data.dev_verification_code);
                     } else if (data.dev_note) {
                         // User doesn't exist - show helpful message
                         closeForgotPasswordModal();

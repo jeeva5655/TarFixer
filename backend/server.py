@@ -28,7 +28,7 @@ from flask_cors import CORS
 # Firebase Admin SDK
 try:
     import firebase_admin
-    from firebase_admin import credentials, firestore
+    from firebase_admin import credentials, firestore, auth
 except ImportError:
     firebase_admin = None
     firestore = None
@@ -179,25 +179,28 @@ def fb_get_user_by_email(email):
         print(f"Firebase error: {e}")
         return None
 
-def fb_create_user(email, password_hash, user_type, name):
-    """Create user in Firebase"""
-    if not USE_FIREBASE:
-        return None
+def fb_create_user(email, password_hash, user_type='user', name=None, additional_data=None):
+    """Create a new user in Firebase Firestore"""
+    if not db: return None
+    
     try:
-        users_ref = db.collection('users')
-        doc_ref = users_ref.add({
+        user_data = {
             'email': email,
             'password_hash': password_hash,
             'user_type': user_type,
-            'name': name,
-            'created_at': datetime.now().isoformat(),
-            'last_login': None,
-            'google_id': None,
-            'approved': 1
-        })
+            'name': name or email.split('@')[0],
+            'approved': 1, # Default to approved for now unless specified
+            'created_at': datetime.now().isoformat()
+        }
+        
+        if additional_data:
+            user_data.update(additional_data)
+            
+        # Add to 'users' collection
+        doc_ref = db.collection('users').add(user_data)
         return doc_ref[1].id
     except Exception as e:
-        print(f"Firebase error: {e}")
+        print(f"Error creating Firebase user: {e}")
         return None
 
 def fb_update_user(email, updates):
@@ -537,109 +540,152 @@ def ensure_user_columns(conn):
     add_column_if_missing(conn, 'users', 'approved', "INTEGER DEFAULT 1")
 
 def init_db():
-    """Initialize database tables"""
-    conn = get_db()
-    c = conn.cursor()
-    
-    # Users table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            user_type TEXT NOT NULL,
-            name TEXT,
-            created_at TEXT,
-            last_login TEXT
-        )
-    ''')
-    
-    # Whitelist table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS whitelist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            user_type TEXT NOT NULL,
-            phone TEXT,
-            status TEXT DEFAULT 'pending',
-            requested_at TEXT,
-            approved_by TEXT,
-            approved_at TEXT
-        )
-    ''')
+    """Initialize the database tables"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
 
-    ensure_whitelist_columns(conn)
-    ensure_user_columns(conn)
-    
-    # Sessions table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            token TEXT UNIQUE NOT NULL,
-            user_id INTEGER,
-            email TEXT,
-            user_type TEXT,
-            created_at TEXT,
-            expires_at TEXT,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    ''')
-    
-    # Reports table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            location TEXT,
-            latitude REAL,
-            longitude REAL,
-            damage_percentage REAL,
-            severity TEXT,
-            detection_count INTEGER,
-            description TEXT,
-            annotated_image TEXT,
-            original_image TEXT,
-            status TEXT DEFAULT 'pending',
-            assigned_worker TEXT,
-            created_at TEXT,
-            updated_at TEXT
-        )
-    ''')
-    
-    # Audit log table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            event_type TEXT,
-            email TEXT,
-            details TEXT,
-            timestamp TEXT,
-            ip_address TEXT
-        )
-    ''')
-    
-    conn.commit()
-    
-    # Insert default whitelisted accounts if not exist
-    default_whitelist = [
-        ('admin@officer.com', 'officer', 'system'),
-        ('supervisor@officer.com', 'officer', 'system'),
-        ('manager@office.com', 'officer', 'system'),
-        ('worker1@worker.com', 'worker', 'system'),
-        ('worker2@worker.com', 'worker', 'system'),
-        ('contractor@worker.com', 'worker', 'system'),
-    ]
-    
-    for email, user_type, approved_by in default_whitelist:
-        timestamp = datetime.now().isoformat()
+        # Users table
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     email TEXT UNIQUE NOT NULL,
+                     password_hash TEXT,
+                     name TEXT,
+                     user_type TEXT NOT NULL DEFAULT 'user',
+                     google_id TEXT,
+                     avatar_url TEXT,
+                     approved INTEGER DEFAULT 0,
+                     security_answer TEXT,
+                     last_login TEXT,
+                     created_at TEXT)''')
+                     
+        # Migration: Ensure existing users have 'admin' as security answer if NULL
+        try:
+            c.execute("SELECT security_answer FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            print("🔧 Migrating DB: Adding security_answer column...")
+            try:
+                c.execute("ALTER TABLE users ADD COLUMN security_answer TEXT")
+            except sqlite3.OperationalError:
+                pass
+            
+        # Set default 'admin' for NULL values
+        c.execute("UPDATE users SET security_answer = 'admin' WHERE security_answer IS NULL")
+        if c.rowcount > 0:
+            print(f"🔧 Migrated {c.rowcount} users to have default security answer 'admin'")
+
+        # Whitelist table
         c.execute('''
-            INSERT OR IGNORE INTO whitelist (email, user_type, phone, status, requested_at, approved_by, approved_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (email, user_type, None, 'approved', timestamp, approved_by, timestamp))
-    
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized successfully")
+            CREATE TABLE IF NOT EXISTS whitelist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                user_type TEXT NOT NULL,
+                phone TEXT,
+                status TEXT DEFAULT 'pending',
+                requested_at TEXT,
+                approved_by TEXT,
+                approved_at TEXT
+            )
+        ''')
+
+        ensure_whitelist_columns(conn)
+        ensure_user_columns(conn)
+        
+        # Sessions table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token TEXT UNIQUE NOT NULL,
+                user_id INTEGER,
+                email TEXT,
+                user_type TEXT,
+                created_at TEXT,
+                expires_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
+        
+        # Reports table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_email TEXT,
+                location TEXT,
+                latitude REAL,
+                longitude REAL,
+                damage_percentage REAL,
+                severity TEXT,
+                detection_count INTEGER,
+                description TEXT,
+                annotated_image TEXT,
+                original_image TEXT,
+                status TEXT DEFAULT 'pending',
+                assigned_worker TEXT,
+                created_at TEXT,
+                updated_at TEXT,
+                image_data TEXT,
+                after_image TEXT,
+                completion_lat REAL,
+                completion_lng REAL,
+                completed_at TEXT,
+                completed_by TEXT
+            )
+        ''')
+        
+        # Audit log table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT,
+                email TEXT,
+                details TEXT,
+                timestamp TEXT,
+                ip_address TEXT
+            )
+        ''')
+        
+        # Password Resets Table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS password_resets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                verification_code TEXT,
+                expires_at TEXT NOT NULL,
+                used INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
+        
+        conn.commit()
+        
+        # Insert default whitelisted accounts if not exist
+        default_whitelist = [
+            ('admin@officer.com', 'officer', 'system'),
+            ('supervisor@officer.com', 'officer', 'system'),
+            ('manager@office.com', 'officer', 'system'),
+            ('worker1@worker.com', 'worker', 'system'),
+            ('worker2@worker.com', 'worker', 'system'),
+            ('contractor@worker.com', 'worker', 'system'),
+        ]
+        
+        for email, user_type, approved_by in default_whitelist:
+            timestamp = datetime.now().isoformat()
+            c.execute('''
+                INSERT OR IGNORE INTO whitelist (email, user_type, phone, status, requested_at, approved_by, approved_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (email, user_type, None, 'approved', timestamp, approved_by, timestamp))
+        
+        conn.commit()
+        conn.close()
+        print("✅ Database initialized successfully")
+        
+    except Exception as e:
+        print(f"❌ Database initialization error: {e}")
+        import traceback
+        traceback.print_exc()
 
 # ---------------------------------------------------------
 # AI Service Configuration
@@ -948,7 +994,7 @@ def expand_box(x1, y1, x2, y2, w, h, factor=0.15):
     cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
     bw, bh = (x2 - x1) * (1 + factor), (y2 - y1) * (1 + factor)
     nx1, ny1 = int(clamp(cx - bw / 2, 0, w - 1)), int(clamp(cy - bh / 2, 0, h - 1))
-    nx2, ny2 = int(clamp(cx + bw / 2, 0, w - 1)), int(clamp(cy + bh / 2, 0, h - 1))
+    nx2, ny2 = int(clamp(cx + bw / 2, 0, h - 1)), int(clamp(cy + bh / 2, 0, h - 1))
     return nx1, ny1, nx2, ny2
 
 def is_road_scene(image_bgr):
@@ -970,9 +1016,13 @@ def signup():
     requested_user_type = (data.get('user_type') or '').lower().strip()
     phone = (data.get('phone') or '').strip()
     preferred_name = (data.get('name') or '').strip()
+    security_answer = (data.get('security_answer') or '').strip().lower() # Normalize to lowercase
     
     if not email or not password:
         return jsonify({'error': 'Email and password required'}), 400
+        
+    if not security_answer:
+        return jsonify({'error': 'Security answer (Pet Name) is required'}), 400
     
     # Determine user type from input or email domain
     user_type = 'user'
@@ -1016,7 +1066,12 @@ def signup():
         fallback_name = email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
         name = preferred_name or fallback_name
         
-        user_id = fb_create_user(email, password_hash, user_type, name)
+        # Additional user data
+        additional_data = {
+            'security_answer': security_answer
+        }
+        
+        user_id = fb_create_user(email, password_hash, user_type, name, additional_data)
         if user_id:
             # If came from whitelist, update usage? (Optional, maybe not needed)
             fb_log_audit('SIGNUP_SUCCESS', email, {'user_type': user_type})
@@ -1070,9 +1125,16 @@ def signup():
     fallback_name = email.split('@')[0].replace('.', ' ').replace('_', ' ').title()
     name = preferred_name or fallback_name
     
-    c.execute('''INSERT INTO users (email, password_hash, user_type, name, created_at)
-                 VALUES (?, ?, ?, ?, ?)''',
-              (email, password_hash, user_type, name, datetime.now().isoformat()))
+    # Ensure column exists (handled in init_db mostly, but good for safety)
+    try:
+        c.execute("SELECT security_answer FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        c.execute("ALTER TABLE users ADD COLUMN security_answer TEXT")
+    
+    c.execute('''INSERT INTO users (email, password_hash, user_type, name, security_answer, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?)''', 
+              (email, password_hash, user_type, name, security_answer, datetime.now().isoformat()))
+    
     conn.commit()
     conn.close()
     
@@ -1444,13 +1506,17 @@ def google_login():
 
 @app.route('/api/auth/forgot-password', methods=['POST'])
 def forgot_password():
-    """Handle forgot password request - generates reset token with rate limiting"""
+    """Initiate password reset with security check"""
     data = request.get_json()
     email = data.get('email', '').strip().lower()
+    security_answer = data.get('security_answer', '').strip().lower() # Verify against this
     
     if not email:
         return jsonify({'error': 'Email is required'}), 400
-    
+        
+    if not security_answer:
+        return jsonify({'error': 'Security answer (Pet Name) is required'}), 400
+        
     # Rate limiting: Check if too many reset requests from this email
     conn = get_db()
     c = conn.cursor()
@@ -1477,6 +1543,81 @@ def forgot_password():
         c.execute("ALTER TABLE password_resets ADD COLUMN verification_code TEXT")
 
     fifteen_min_ago = (datetime.now() - timedelta(minutes=15)).isoformat()
+    
+    # Use Firebase if available
+    if USE_FIREBASE:
+        # Check user in Firebase
+        user = fb_get_user_by_email(email)
+        
+        if not user:
+            # Don't reveal if user exists or not (security)
+            return jsonify({
+                'message': 'If an account exists with this email, you will receive password reset instructions.',
+                'success': True
+            }), 200
+            
+        # Check if Google Auth user (cannot reset password)
+        if user.get('google_id'):
+            return jsonify({
+                'error': 'This account uses Google Sign-In. Please sign in with Google.',
+                'is_google': True
+            }), 400
+            
+        # SECURITY CHECK: Verify Pet Name
+        # For legacy accounts without an answer, we default to 'admin'
+        stored_answer = (user.get('security_answer') or 'admin').lower()
+        if security_answer != stored_answer:
+            # Check if it IS a legacy account (missing field) and they entered 'admin'
+            # If the user specifically entered 'admin' and the field is missing/empty, it's valid.
+            # The logic `(user.get('security_answer') or 'admin')` handles acts as the source of truth.
+            
+            # Audit log for failed security answer
+            fb_log_audit('SECURITY_QUESTION_FAILED', email, {'attempted': security_answer})
+            return jsonify({'error': 'Incorrect security answer (Pet Name).'}), 403
+
+        # Generate reset token and code
+        reset_token = secrets.token_urlsafe(32)
+        verification_code = generate_verification_code()
+        expires_at = datetime.now() + timedelta(hours=1)
+        
+        # Store in Firestore
+        try:
+            db.collection('password_resets').add({
+                'email': email,
+                'user_id': user['id'],
+                'token': reset_token,
+                'verification_code': verification_code,
+                'expires_at': expires_at.isoformat(),
+                'used': False,
+                'created_at': datetime.now().isoformat()
+            })
+        except Exception as e:
+            print(f"Firebase reset error: {e}")
+            return jsonify({'error': 'Failed to process request'}), 500
+            
+        # Send email with reset link and verification code
+        FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://tar-fixer.vercel.app')
+        reset_link = f"{FRONTEND_URL}/Login/reset-password.html?token={reset_token}"
+        
+        # Send both emails: link and verification code
+        email_sent_link = send_password_reset_link_email(email, reset_link, user.get('name', 'User'))
+        email_sent_code = send_verification_code_email(email, verification_code, user.get('name', 'User'))
+        
+        fb_log_audit('PASSWORD_RESET_REQUEST', email, {
+            'token_generated': True,
+            'email_sent_link': email_sent_link,
+            'email_sent_code': email_sent_code
+        })
+        
+        return jsonify({
+            'message': 'Password reset instructions have been sent to your email.',
+            'success': True,
+            # Keep for development
+            'dev_reset_link': reset_link,
+            'dev_token': reset_token,
+            'dev_verification_code': verification_code
+        }), 200
+
     c.execute('''
         SELECT COUNT(*) as count FROM password_resets
         WHERE user_id = (SELECT id FROM users WHERE email = ?)
@@ -1490,7 +1631,11 @@ def forgot_password():
         return jsonify({'error': 'Too many reset requests. Please try again later.'}), 429
     
     # Check if user exists
-    c.execute('SELECT id, email, name FROM users WHERE email = ?', (email,))
+    c.execute('SELECT id, email, name, google_id, password_hash, security_answer FROM users WHERE email = ?', (email,))
+    user = dict(c.fetchone()) if c.fetchone() else None # Fetch as dict-like
+    
+    # Re-fetch as proper row to avoid confusing behavior
+    c.execute('SELECT * FROM users WHERE email = ?', (email,))
     user = c.fetchone()
     
     if not user:
@@ -1502,6 +1647,23 @@ def forgot_password():
             'success': True,
             'dev_note': 'No account found with this email. Please sign up first.'
         }), 200
+        
+    # Check if Google Auth user (from legacy or mixed auth)
+    # We need to check if they have a google_id and NO password hash (or specific placeholder)
+    if user['google_id'] and (not user['password_hash'] or user['password_hash'] == 'GOOGLE_AUTH'):
+        conn.close()
+        return jsonify({
+            'error': 'This account uses Google Sign-In. Please sign in with Google.',
+            'is_google': True
+        }), 400
+        
+    # SECURITY CHECK: Verify Pet Name
+    # For legacy accounts (NULL security_answer), default to 'admin'
+    stored_answer = (user.get('security_answer') or 'admin').lower()
+    
+    if security_answer != stored_answer:
+        conn.close()
+        return jsonify({'error': 'Incorrect security answer (Pet Name).'}), 403
     
     # Generate reset token
     reset_token = secrets.token_urlsafe(32)
@@ -1574,6 +1736,36 @@ def verify_code():
     if len(code) != 6 or not code.isdigit():
         return jsonify({'error': 'Invalid verification code format'}), 400
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        try:
+            resets_ref = db.collection('password_resets')
+            query = resets_ref.where('token', '==', token).limit(1)
+            docs = list(query.stream())
+            
+            if not docs:
+                return jsonify({'error': 'Invalid or expired reset token'}), 400
+                
+            reset_data = docs[0].to_dict()
+            
+            if reset_data.get('used'):
+                return jsonify({'error': 'This reset link has already been used'}), 400
+                
+            expires_at = datetime.fromisoformat(reset_data['expires_at'])
+            if datetime.now() > expires_at:
+                return jsonify({'error': 'Token expired'}), 400
+                
+            if reset_data.get('verification_code') != code:
+                return jsonify({'error': 'Invalid verification code'}), 400
+                
+            return jsonify({
+                'message': 'Verification successful. You can now reset your password.',
+                'success': True
+            }), 200
+        except Exception as e:
+            print(f"Firebase verification error: {e}")
+            return jsonify({'error': 'Verification failed'}), 500
+
     conn = get_db()
     c = conn.cursor()
     
@@ -1631,6 +1823,66 @@ def reset_password():
     # Rate limiting: Track failed token attempts by IP
     client_ip = request.remote_addr
     
+    # Use Firebase if available
+    if USE_FIREBASE:
+        try:
+            resets_ref = db.collection('password_resets')
+            query = resets_ref.where('token', '==', token).limit(1)
+            docs = list(query.stream())
+            
+            if not docs:
+                return jsonify({'error': 'Invalid or expired reset token'}), 400
+                
+            reset_doc = docs[0]
+            reset_data = reset_doc.to_dict()
+            
+            if reset_data.get('used'):
+                return jsonify({'error': 'This reset link has already been used'}), 400
+                
+            # Verify code
+            if reset_data.get('verification_code') != verification_code:
+                return jsonify({'error': 'Invalid verification code'}), 400
+                
+            email = reset_data['email']
+            
+            # Hash password for fallback/security
+            password_hash = hash_password(new_password, email)
+            
+            # Update password in Firebase Auth (if user exists there)
+            try:
+                # Find user UID by email (using our Firestore map logic usually, but here we can try auth.get_user_by_email)
+                try:
+                    user_record = auth.get_user_by_email(email)
+                    auth.update_user(user_record.uid, password=new_password)
+                    print(f"✅ Firebase Auth password updated for {email}")
+                except auth.UserNotFoundError:
+                    print(f"⚠️ User {email} not found in Firebase Auth, updating only Firestore")
+            except Exception as e:
+                print(f"⚠️ Firebase Auth update warning: {e}")
+            
+            # Update user in Firestore (password_hash)
+            fb_update_user(email, {'password_hash': password_hash})
+            
+            # Mark token as used
+            reset_doc.reference.update({'used': True, 'used_at': datetime.now().isoformat()})
+            
+            # Invalidate sessions by email (manual cleanup)
+            sessions_ref = db.collection('sessions')
+            sessions = sessions_ref.where('email', '==', email).stream()
+            for s in sessions:
+                s.reference.delete()
+                
+            fb_log_audit('PASSWORD_RESET_SUCCESS', email, {'ip': client_ip})
+            
+            return jsonify({
+                'message': 'Password has been reset successfully. You can now log in with your new password.',
+                'success': True
+            }), 200
+            
+        except Exception as e:
+            print(f"Firebase reset pass error: {e}")
+            return jsonify({'error': 'Failed to reset password'}), 500
+
     conn = get_db()
     c = conn.cursor()
     
