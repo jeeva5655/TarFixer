@@ -2977,6 +2977,60 @@ def debug_schema():
 def admin_stats():
     """Get dashboard analytics for officers"""
     try:
+        # Firebase Implementation
+        if USE_FIREBASE:
+            reports = fb_get_reports() # Fetches all reports
+            
+            raw_counts = {}
+            severity = {}
+            weekly_data = {}
+            
+            seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+            
+            for r in reports:
+                # 1. Status Counts
+                s = r.get('status', 'unknown')
+                raw_counts[s] = raw_counts.get(s, 0) + 1
+                
+                # 2. Severity Counts
+                sev = r.get('severity')
+                if sev:
+                    severity[sev] = severity.get(sev, 0) + 1
+                
+                # 3. Weekly Activity (Reports Created)
+                # Handle potential key mismatch (created_at vs timestamp)
+                c_at = r.get('created_at') or r.get('timestamp')
+                if c_at and isinstance(c_at, str) and len(c_at) >= 10:
+                    day = c_at[:10]
+                    if day >= seven_days_ago:
+                        weekly_data[day] = weekly_data.get(day, 0) + 1
+
+            counts = {
+                'new': raw_counts.get('new', 0) + raw_counts.get('pending', 0), # Handle legacy 'pending'
+                'assigned': raw_counts.get('assigned', 0),
+                'in_progress': raw_counts.get('in_progress', 0),
+                'done': raw_counts.get('done', 0),
+                'resolved': raw_counts.get('resolved', 0)
+            }
+            
+            weekly_reports = []
+            for i in range(7):
+                d = (datetime.now() - timedelta(days=6-i))
+                day_str = d.strftime('%Y-%m-%d')
+                label = d.strftime('%a')
+                weekly_reports.append({
+                    'date': day_str,
+                    'label': label,
+                    'count': weekly_data.get(day_str, 0)
+                })
+
+            return jsonify({
+                'counts': counts,
+                'severity': severity,
+                'weekly_reports': weekly_reports
+            }), 200
+
+        # SQLite Fallback
         conn = get_db()
         conn.row_factory = sqlite3.Row # Force row factory locally
         c = conn.cursor()
@@ -3052,6 +3106,57 @@ def worker_stats():
     """Get dashboard analytics for workers"""
     try:
         email = request.current_user['email']
+        
+        # Firebase Implementation
+        if USE_FIREBASE:
+            reports = fb_get_reports() 
+            # Filter for this worker
+            my_reports = [r for r in reports if r.get('assigned_worker') == email]
+            
+            raw_counts = {}
+            weekly_data = {}
+            
+            seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+            
+            for r in my_reports:
+                # 1. Status Counts
+                s = r.get('status', 'unknown')
+                raw_counts[s] = raw_counts.get(s, 0) + 1
+                
+                # 2. Key Weekly Completions
+                # Check done/resolved and updated_at
+                if s in ['done', 'resolved']:
+                    # Use updated_at for completion time, or fallback to created_at
+                    u_at = r.get('updated_at') or r.get('completed_at') or r.get('created_at') or r.get('timestamp')
+                    if u_at and isinstance(u_at, str) and len(u_at) >= 10:
+                        day = u_at[:10]
+                        if day >= seven_days_ago:
+                            weekly_data[day] = weekly_data.get(day, 0) + 1
+            
+            counts = {
+                'assigned': raw_counts.get('assigned', 0),
+                'in_progress': raw_counts.get('in_progress', 0),
+                'done': raw_counts.get('done', 0),
+                'resolved': raw_counts.get('resolved', 0)
+            }
+            
+            weekly_perf = []
+            for i in range(7):
+                d = (datetime.now() - timedelta(days=6-i))
+                day_str = d.strftime('%Y-%m-%d')
+                label = d.strftime('%a')
+                weekly_perf.append({
+                    'date': day_str,
+                    'label': label,
+                    'count': weekly_data.get(day_str, 0)
+                })
+
+            return jsonify({
+                'counts': counts,
+                'weekly_performance': weekly_perf
+            }), 200
+
+        # SQLite Fallback
         conn = get_db()
         conn.row_factory = sqlite3.Row # Force row factory
         c = conn.cursor()
