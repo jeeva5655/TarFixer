@@ -63,7 +63,11 @@ desktop.ini
 # Email Configuration (contains sensitive credentials)
 backend/email_config.py
 
+
 # Temporary files
 tmp/
 temp/
 *.tmp
+
+# Flutter overrides
+!flutter/lib/
