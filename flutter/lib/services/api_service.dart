@@ -11,8 +11,8 @@ class ApiService {
   // DEVELOPMENT (Emulator):
   // static const String baseUrl = 'http://10.0.2.2:5000/api';
   
-  // PRODUCTION (Vercel):
-  static const String baseUrl = 'https://tar-fixer.vercel.app/api';
+  // PRODUCTION (Render Backend):
+  static const String baseUrl = 'https://tarfixer-backend.onrender.com/api';
   
   String? _token;
 
