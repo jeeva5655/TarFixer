@@ -2,6 +2,10 @@
 
 **An Integrated System for Real-Time Road Damage Detection and Classification using YOLOv11 with Automated Authority Reporting**
 
+## Live Demos & Links
+- **Live Web Application:** [TarFixer on Vercel](https://tar-fixer.vercel.app/)
+- **Hugging Face Backend (API):** [TarFixer HF Space](https://huggingface.co/spaces/Jeeva5655/tarfixer-backend)
+
 ## Overview
 TarFixer is a deep learning-based system designed to detect and categorize road surface defects, such as potholes, cracks, and erosion. It allows users to capture images of roads using a smartphone camera and upload these captured images through a web interface. These images are processed by a YOLOv11 model that detects the damaged regions and calculates the severity percentage in each detected area. 
 
