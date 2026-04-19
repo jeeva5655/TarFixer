@@ -53,11 +53,9 @@ For detailed setup instructions, deployment guides, and security overviews, plea
 - [Implementation Complete](IMPLEMENTATION_COMPLETE.md)
 
 ## Contributors
-Developed as a mini-project by:
+Developed by:
 * **Jeeva N**
 * **Siva S**
-* **Aakash M**
-* **Institution:** PSNA College of Engineering and Technology, Department of AI & DS.
 
 ---
 *This repository contains the full source code and documentation related to the building, deployment, and testing of the Road Damage Detection model.*
